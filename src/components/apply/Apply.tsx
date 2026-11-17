@@ -8,7 +8,7 @@ import { MemoryGame } from "./MemoryGame";
 import { SessionProvider, useSession } from "./Session";
 import { downloadCard } from "@/lib/card";
 import { TASK_ORDER, isComplete, nextTask, type TaskId } from "@/lib/entry";
-import { FRIENDS_NEEDED, PINNED_ID, PINNED_POST, WALLET, X_HANDLE, X_URL } from "@/lib/site";
+import { FRIENDS_NEEDED, PINNED_ID, SITE, PINNED_POST, WALLET, X_HANDLE, X_URL } from "@/lib/site";
 
 const US = X_HANDLE.slice(1);
 const openX = (url: string) => window.open(url, "_blank", "noopener,noreferrer");
@@ -153,7 +153,8 @@ function Application() {
     setWalletError(r.error ?? null);
   };
 
-  const quoteText = `I'm trying to become a Head. 👁️👁️\n\n${X_HANDLE}\n\n${entry?.wallet ?? ""}\n\nTagging: @ @`;
+  // Must keep X_HANDLE, the wallet and the friend tags: the quote check looks for all three
+  const quoteText = `Just applied for the ${X_HANDLE} free mint 👁️👁️\n\nYou can become a Head too 👇\n${SITE.url.replace(/^https?:\/\//, "")}/whitelist\n\n${entry?.wallet ?? ""}\n\nTagging: @ @`;
 
   return (
     <section className="relative px-4 pt-32 pb-24 sm:px-8 sm:pt-40 sm:pb-32">
