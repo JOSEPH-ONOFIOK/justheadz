@@ -98,7 +98,7 @@ export async function exchangeAndFetchUser(code: string, verifier: string, redir
   if (!tokenRes.ok) throw new Error(`token ${tokenRes.status}`);
   const { access_token } = await tokenRes.json();
 
-  // created_at and followers feed the eligibility check
+  // created_at and followers are saved with the application
   const meRes = await fetch("https://api.x.com/2/users/me?user.fields=created_at,public_metrics", {
     headers: { Authorization: `Bearer ${access_token}` },
     cache: "no-store",

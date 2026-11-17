@@ -2,10 +2,11 @@ import { cookies } from "next/headers";
 import { cookieBase, sign, unsign } from "./auth";
 import type { Entry } from "./entry";
 
-// Storage:
+// Storage, first one configured wins:
+//   Google Sheet    when GOOGLE_SHEET_URL is set (see apps-script/Code.gs).
 //   Upstash Redis   when UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN are set.
-//                   The export and one-wallet-per-account need it.
-//   Browser cookie  otherwise: each visitor's progress is kept in a signed cookie
+//   Browser cookie  otherwise: each visitor's progress is kept in a signed cookie.
+// The export and one-wallet-per-account need a database (Sheet or Upstash).
 
 interface Store {
   get(handle: string): Promise<Entry | null>;
@@ -63,6 +64,38 @@ const upstash: Store = {
   },
 };
 
+// ---------- Google Sheet (Apps Script web app) ----------
+const SHEET_URL = process.env.GOOGLE_SHEET_URL;
+
+async function sheet<T = unknown>(op: string, args: Record<string, unknown> = {}): Promise<T> {
+  // Apps Script answers a POST with a redirect to the result, which fetch follows
+  const res = await fetch(SHEET_URL!, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify({ op, ...args }),
+    cache: "no-store",
+    redirect: "follow",
+  });
+  const text = await res.text();
+  let json: { result?: T; error?: string };
+  try {
+    json = JSON.parse(text);
+  } catch {
+    throw new Error(`Google Sheet returned ${res.status}, not JSON. Check the web app is deployed with access "Anyone".`);
+  }
+  if (json.error) throw new Error(`Google Sheet: ${json.error}`);
+  return json.result as T;
+}
+
+const sheets: Store = {
+  get: (handle) => sheet<Entry | null>("get", { handle }),
+  put: async (entry) => void (await sheet("put", { entry })),
+  all: () => sheet<Entry[]>("all"),
+  walletOwner: (wallet) => sheet<string | null>("walletOwner", { wallet }),
+  claimWallet: async (wallet, handle, previous) => void (await sheet("claimWallet", { wallet, handle, previous })),
+  limit: (k, max, windowSec) => sheet<boolean>("limit", { key: k, max, windowSec }),
+};
+
 // ---------- Browser cookie ----------
 // No database: each visitor's entry lives in a signed cookie in their own
 // browser. Signing means it can't be edited to fake tasks. There is no shared
@@ -97,25 +130,26 @@ const cookie: Store = {
   },
 };
 
-export const hasDatabase = !!(URL_ && TOKEN);
-const base = hasDatabase ? upstash : cookie;
+const db: Store | null = SHEET_URL ? sheets : URL_ && TOKEN ? upstash : null;
+export const hasDatabase = !!db;
+const base = db ?? cookie;
 
 // Someone who started while progress lived in their browser keeps it: the first
 // time they come back, their signed cookie moves into the database.
-async function importCookieEntry(handle: string) {
+async function importCookieEntry(db: Store, handle: string) {
   const old = await cookie.get(handle);
   if (!old) return null;
   if (old.wallet) {
-    const owner = await upstash.walletOwner(old.wallet);
+    const owner = await db.walletOwner(old.wallet);
     if (owner && owner !== key(old.handle)) {
       // Another account claimed this wallet first
       delete old.wallet;
       delete old.done.wallet;
       delete old.done.quote;
       delete old.quoteLink;
-    } else await upstash.claimWallet(old.wallet, old.handle);
+    } else await db.claimWallet(old.wallet, old.handle);
   }
-  await upstash.put(old);
+  await db.put(old);
   return old;
 }
 
@@ -123,6 +157,6 @@ export const store: Store = {
   ...base,
   async get(handle) {
     const entry = await base.get(handle);
-    return entry ?? (hasDatabase ? importCookieEntry(handle) : null);
+    return entry ?? (db ? importCookieEntry(db, handle) : null);
   },
 };

@@ -18,7 +18,7 @@ export type Entry = {
   reposted?: boolean;
   // When the memory game was started, so it can't be skipped instantly
   memoryStart?: number;
-  // From X at sign in, used for the eligibility check
+  // From X at sign in, saved for reference
   xCreated?: string;
   followers?: number;
   // Why this account can't apply, if it can't

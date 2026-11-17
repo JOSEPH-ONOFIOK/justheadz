@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Bowlby_One, Space_Grotesk } from "next/font/google";
 import "./globals.css";
-import { SITE } from "@/lib/site";
+import { SITE, X_HANDLE } from "@/lib/site";
 import { Nav } from "@/components/Nav";
 import { Footer } from "@/components/Footer";
 import { ClickBurst } from "@/components/motion/ClickBurst";
@@ -18,8 +18,15 @@ export const metadata: Metadata = {
   title: { default: TITLE, template: "%s · JustHeadz" },
   description: DESCRIPTION,
   applicationName: "JustHeadz",
-  openGraph: { type: "website", url: "/", siteName: "JustHeadz", title: TITLE, description: DESCRIPTION },
-  twitter: { card: "summary_large_image", title: TITLE, description: DESCRIPTION },
+  keywords: ["JustHeadz", "Just Headz", "NFT", "PFP", "whitelist", "heads", "new evolution"],
+  authors: [{ name: "JustHeadz", url: SITE.url }],
+  creator: "JustHeadz",
+  publisher: "JustHeadz",
+  alternates: { canonical: "/" },
+  robots: { index: true, follow: true, googleBot: { index: true, follow: true, "max-image-preview": "large" } },
+  openGraph: { type: "website", url: "/", siteName: "JustHeadz", locale: "en_US", title: TITLE, description: DESCRIPTION },
+  twitter: { card: "summary_large_image", site: X_HANDLE, creator: X_HANDLE, title: TITLE, description: DESCRIPTION },
+  formatDetection: { telephone: false, email: false, address: false },
 };
 
 export const viewport: Viewport = { themeColor: "#f8d8a7", colorScheme: "light" };

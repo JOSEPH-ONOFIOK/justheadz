@@ -8,7 +8,7 @@ import { MemoryGame } from "./MemoryGame";
 import { SessionProvider, useSession } from "./Session";
 import { downloadCard } from "@/lib/card";
 import { TASK_ORDER, isComplete, nextTask, type TaskId } from "@/lib/entry";
-import { FRIENDS_NEEDED, MIN_ACCOUNT_DAYS, MIN_FOLLOWERS, PINNED_ID, PINNED_POST, WALLET, X_HANDLE, X_URL } from "@/lib/site";
+import { FRIENDS_NEEDED, PINNED_ID, PINNED_POST, WALLET, X_HANDLE, X_URL } from "@/lib/site";
 
 const US = X_HANDLE.slice(1);
 const openX = (url: string) => window.open(url, "_blank", "noopener,noreferrer");
@@ -196,7 +196,7 @@ function Application() {
             <div className="border-4 border-ink bg-bone p-6 text-center shadow-[6px_6px_0_#120c0a] sm:p-8">
               <h2 className="display text-3xl sm:text-4xl">Step 0: Show your face</h2>
               <p className="mx-auto mt-3 max-w-md font-medium">
-                Connect your X to start. Accounts need to be at least {MIN_ACCOUNT_DAYS} days old with {MIN_FOLLOWERS}+ followers. We only read your public profile and never post for you.
+                Connect your X to start. We only read your public profile and never post for you.
               </p>
               {auth === "off" ? (
                 <p className="display mt-6 text-2xl">Applications open soon. Follow {X_HANDLE} to hear first.</p>
