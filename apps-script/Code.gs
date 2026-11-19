@@ -62,8 +62,11 @@ function prepareSheet_(sheet, columns) {
 
 // ---------- web app ----------
 
+// Bump when this file changes, so the live copy can be checked: open the /exec URL in a browser
+var VERSION = 3; // 3: evolution and holder claim columns
+
 function doGet() {
-  return json_({ ok: true });
+  return json_({ ok: true, version: VERSION });
 }
 
 function doPost(e) {
