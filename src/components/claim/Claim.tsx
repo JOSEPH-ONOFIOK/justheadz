@@ -6,7 +6,7 @@ import { SessionProvider, useSession } from "../apply/Session";
 import { Morph } from "../motion/PageShell";
 import { Title } from "../motion/Title";
 import { connectAndSign, discoverWallets, walletError, type WalletOption } from "./wallets";
-import { ALL_COMMUNITIES, CHAIN_NAMES, CLAIM_CAP, CLAIM_POST, CLAIM_POST_ID, PHASES, claimReplyText, signMessage, type Claim, type ClaimStats } from "@/lib/claim";
+import { ALL_COMMUNITIES, CHAIN_NAMES, CLAIM_POST, CLAIM_POST_ID, PHASES, claimReplyText, signMessage, type Claim } from "@/lib/claim";
 import { SITE, WALLET, X_HANDLE, X_URL } from "@/lib/site";
 
 const US = X_HANDLE.slice(1);
@@ -411,33 +411,10 @@ function Flow() {
 
 // ---------- who's eligible ----------
 function Phases() {
-  const [stats, setStats] = useState<ClaimStats | null>(null);
-  useEffect(() => {
-    fetch("/api/claim")
-      .then((r) => r.json())
-      .then(setStats)
-      .catch(() => {});
-  }, []);
-  const claimed = stats?.claimed ?? 0;
-  const pct = Math.min(100, (claimed / CLAIM_CAP) * 100);
-
   return (
     <section className="mt-20">
       <p className="mb-2 font-bold uppercase tracking-[0.2em] text-wine">Who gets in</p>
       <Title as="h2" text="Two phases" className="text-[clamp(2.4rem,7vw,5.5rem)]" />
-
-      {/* every spot, both phases */}
-      <div className="mt-6 border-4 border-ink bg-bone p-4 shadow-[6px_6px_0_#120c0a] sm:p-5">
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <p className="display text-2xl sm:text-3xl">
-            {stats ? claimed.toLocaleString("en-US") : "…"} <span className="opacity-40">/ {CLAIM_CAP.toLocaleString("en-US")}</span>
-          </p>
-          <p className="text-sm font-bold uppercase">{claimed >= CLAIM_CAP ? "All spots claimed" : `${(CLAIM_CAP - claimed).toLocaleString("en-US")} spots left`}</p>
-        </div>
-        <div className="mt-2 h-6 -skew-x-12 border-4 border-ink bg-sand" role="progressbar" aria-valuemin={0} aria-valuemax={CLAIM_CAP} aria-valuenow={claimed} aria-label="Spots claimed">
-          <div className="hatch-move h-full bg-wine [background-image:repeating-linear-gradient(-62deg,rgba(255,243,223,0.25)_0_6px,transparent_6px_14px)] transition-[width] duration-700" style={{ width: `${Math.max(pct, claimed ? 1 : 0)}%` }} />
-        </div>
-      </div>
 
       <div className="mt-8 grid gap-8 lg:grid-cols-2">
         {PHASES.map((p) => (
