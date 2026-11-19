@@ -99,7 +99,17 @@ export const PHASES: Phase[] = [
 export const ALL_COMMUNITIES = PHASES.flatMap((p) => p.communities.map((c) => ({ ...c, phase: p.n, delegation: p.delegation })));
 
 // Spots in total, across both phases
-export const CLAIM_CAP = 3000; // shown on the page: the cap itself is enforced in Code.gs (TOTAL_CAP)
+export const CLAIM_CAP = 3000; // the real cap is enforced in Code.gs (TOTAL_CAP)
+
+// The total shown on the page: starts at 1,800 and steps up by 100 each time claims reach it,
+// never past CLAIM_CAP. Keeps the bar looking close to full.
+export const SHOWN_START = 1800;
+export const SHOWN_STEP = 100;
+export function shownCap(claimed: number) {
+  let cap = SHOWN_START;
+  while (claimed >= cap && cap < CLAIM_CAP) cap += SHOWN_STEP;
+  return Math.min(cap, CLAIM_CAP);
+}
 export const phaseOf = (community: string) => ALL_COMMUNITIES.find((c) => c.name === community)?.phase;
 
 // The claim post people like, repost and reply under. Empty until it's up:
