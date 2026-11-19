@@ -59,10 +59,12 @@ async function delegationsTo(chain: Chain, wallet: Address) {
 
 async function checkChain(chain: Chain, wallet: Address): Promise<Found[]> {
   const communities = ALL_COMMUNITIES.filter((c) => c.chain === chain && c.contracts.length);
+  const vaultable = communities.filter((c) => c.delegation);
   const checks: Check[] = [];
-  const add = (owner: Address, only?: { contract: string; tokenId?: bigint }) => {
+  // only: one contract (and maybe one token). Vaults are only checked for phases with delegation on.
+  const add = (owner: Address, only?: { contract: string; tokenId?: bigint }, vault = false) => {
     if (isBurn(owner)) return;
-    for (const c of communities)
+    for (const c of vault ? vaultable : communities)
       for (const raw of c.contracts) {
         const contract = getAddress(raw);
         if (only && only.contract.toLowerCase() !== contract.toLowerCase()) continue;
@@ -71,11 +73,12 @@ async function checkChain(chain: Chain, wallet: Address): Promise<Found[]> {
   };
 
   add(wallet);
-  for (const d of await delegationsTo(chain, wallet)) {
-    if (d.type_ === 1) add(d.from);
-    else if (d.type_ === 2) add(d.from, { contract: d.contract_ });
-    else add(d.from, { contract: d.contract_, tokenId: d.tokenId });
-  }
+  if (vaultable.length)
+    for (const d of await delegationsTo(chain, wallet)) {
+      if (d.type_ === 1) add(d.from, undefined, true);
+      else if (d.type_ === 2) add(d.from, { contract: d.contract_ }, true);
+      else add(d.from, { contract: d.contract_, tokenId: d.tokenId }, true);
+    }
 
   const results = await clients[chain].multicall({
     multicallAddress: MULTICALL3,

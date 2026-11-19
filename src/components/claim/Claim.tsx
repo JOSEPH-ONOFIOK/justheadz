@@ -6,8 +6,8 @@ import { SessionProvider, useSession } from "../apply/Session";
 import { Morph } from "../motion/PageShell";
 import { Title } from "../motion/Title";
 import { connectAndSign, discoverWallets, walletError, type WalletOption } from "./wallets";
-import { ALL_COMMUNITIES, CHAIN_NAMES, CLAIM_POST, CLAIM_POST_ID, PHASES, claimReplyText, signMessage, type Claim, type ClaimStats } from "@/lib/claim";
-import { SITE, X_HANDLE, X_URL } from "@/lib/site";
+import { ALL_COMMUNITIES, CHAIN_NAMES, CLAIM_CAP, CLAIM_POST, CLAIM_POST_ID, PHASES, claimReplyText, signMessage, type Claim, type ClaimStats } from "@/lib/claim";
+import { SITE, WALLET, X_HANDLE, X_URL } from "@/lib/site";
 
 const US = X_HANDLE.slice(1);
 const HOST = SITE.url.replace(/^https?:\/\//, "");
@@ -25,6 +25,8 @@ function WalletStep({ claim, onError }: { claim: Claim; onError: (e: string | nu
   const { entry, claim: run } = useSession();
   const [wallets, setWallets] = useState<WalletOption[] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [mode, setMode] = useState<"connect" | "type">("connect");
+  const [typed, setTyped] = useState("");
 
   useEffect(() => discoverWallets(setWallets), []);
 
@@ -43,12 +45,64 @@ function WalletStep({ claim, onError }: { claim: Claim; onError: (e: string | nu
     setBusy(null);
   };
 
+  const check = async (e: FormEvent) => {
+    e.preventDefault();
+    const wallet = typed.trim();
+    if (!WALLET.test(wallet)) return onError("That isn't a valid EVM address. It starts with 0x followed by 40 characters.");
+    onError(null);
+    setBusy("check");
+    const r = await run({ step: "wallet", wallet });
+    setBusy(null);
+    onError(r.error ?? null);
+  };
+
   return (
     <div>
+      <div className="mb-4 inline-flex border-4 border-ink" role="tablist" aria-label="How to give your wallet">
+        {(
+          [
+            ["connect", "Connect wallet"],
+            ["type", "Type it in"],
+          ] as const
+        ).map(([m, label]) => (
+          <button
+            key={m}
+            type="button"
+            role="tab"
+            aria-selected={mode === m}
+            onClick={() => setMode(m)}
+            className={`focus-ink px-3 py-1.5 text-sm font-bold uppercase ${mode === m ? "bg-ink text-sand" : "bg-bone"}`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
       <p className="font-semibold">
-        Connect the wallet you&rsquo;ll mint with and sign a message. Signing is free: no gas, nothing moves. We check it, and any vault that delegated to it on delegate.xyz, for an eligible NFT.
+        {mode === "connect"
+          ? "Connect the wallet you'll mint with and sign a message. Signing is free: no gas, nothing moves."
+          : "Paste the wallet you'll mint with. No connecting. If the real owner of that wallet ever claims it by connecting, their claim wins, so only use your own."}{" "}
+        {PHASES.some((p) => p.delegation) && <span className="opacity-75">Vaults that delegated to it on delegate.xyz count too, if you use one.</span>}
       </p>
       {claim.wallet && !claim.community && <p className="mt-2 text-sm font-bold">Last checked: {short(claim.wallet)}</p>}
+      {mode === "type" ? (
+        <form onSubmit={check} className="mt-4 flex flex-col gap-2 sm:flex-row">
+          <label className="sr-only" htmlFor="claim-typed">
+            Wallet address
+          </label>
+          <input
+            id="claim-typed"
+            value={typed}
+            onChange={(e) => setTyped(e.target.value)}
+            placeholder="0x…"
+            spellCheck={false}
+            autoComplete="off"
+            className="focus-ink min-w-0 flex-1 border-4 border-ink bg-white px-3 py-2 font-mono text-sm"
+          />
+          <button type="submit" disabled={!!busy || !typed.trim()} className="btn justify-center bg-ink text-sm text-sand disabled:opacity-60">
+            <span>{busy ? "Reading the chain…" : "Check wallet"}</span>
+          </button>
+        </form>
+      ) : (
       <div className="mt-4 flex flex-wrap gap-3">
         {wallets === null ? (
           <p className="font-bold opacity-60">Looking for wallets…</p>
@@ -68,6 +122,7 @@ function WalletStep({ claim, onError }: { claim: Claim; onError: (e: string | nu
           ))
         )}
       </div>
+      )}
     </div>
   );
 }
@@ -144,6 +199,8 @@ function Stub({ claim, handle }: { claim: Claim; handle: string }) {
                 <dd className="font-mono font-bold">{short(claim.via)}</dd>
               </>
             )}
+            <dt className="opacity-60">Proof</dt>
+            <dd className="font-bold">{claim.signed ? "Signed by the wallet" : "Typed (connect to make it permanent)"}</dd>
             <dt className="opacity-60">Locked</dt>
             <dd className="font-bold">{claim.claimedAt ? new Date(claim.claimedAt).toLocaleString() : ""}</dd>
           </dl>
@@ -220,6 +277,11 @@ function Flow() {
         <Stub claim={c} handle={entry.handle} />
       ) : (
         <div className="border-4 border-ink bg-bone shadow-[8px_8px_0_#120c0a]">
+          {c.lostTo && (
+            <p className="border-b-4 border-ink bg-wine px-4 py-3 text-sm font-bold text-bone sm:px-6">
+              The owner of {short(c.wallet)} connected it and claimed (@{c.lostTo}), so your typed claim was released. Claim again with a wallet you own: your X steps are kept.
+            </p>
+          )}
           {/* progress strip */}
           <ol className="grid grid-cols-4 border-b-4 border-ink" aria-label={`Step ${step + 1} of ${STEPS.length}`}>
             {STEPS.map((s, i) => (
@@ -324,11 +386,27 @@ function Phases() {
       .then(setStats)
       .catch(() => {});
   }, []);
+  const claimed = stats?.claimed ?? 0;
+  const pct = Math.min(100, (claimed / CLAIM_CAP) * 100);
 
   return (
     <section className="mt-20">
       <p className="mb-2 font-bold uppercase tracking-[0.2em] text-wine">Who gets in</p>
       <Title as="h2" text="Two phases" className="text-[clamp(2.4rem,7vw,5.5rem)]" />
+
+      {/* every spot, both phases */}
+      <div className="mt-6 border-4 border-ink bg-bone p-4 shadow-[6px_6px_0_#120c0a] sm:p-5">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <p className="display text-2xl sm:text-3xl">
+            {stats ? claimed.toLocaleString("en-US") : "…"} <span className="opacity-40">/ {CLAIM_CAP.toLocaleString("en-US")}</span>
+          </p>
+          <p className="text-sm font-bold uppercase">{claimed >= CLAIM_CAP ? "All spots claimed" : `${(CLAIM_CAP - claimed).toLocaleString("en-US")} spots left`}</p>
+        </div>
+        <div className="mt-2 h-6 -skew-x-12 border-4 border-ink bg-sand" role="progressbar" aria-valuemin={0} aria-valuemax={CLAIM_CAP} aria-valuenow={claimed} aria-label="Spots claimed">
+          <div className="hatch-move h-full bg-wine [background-image:repeating-linear-gradient(-62deg,rgba(255,243,223,0.25)_0_6px,transparent_6px_14px)] transition-[width] duration-700" style={{ width: `${Math.max(pct, claimed ? 1 : 0)}%` }} />
+        </div>
+      </div>
+
       <div className="mt-8 grid gap-8 lg:grid-cols-2">
         {PHASES.map((p) => (
           <article key={p.n} className={`relative border-4 border-ink p-5 shadow-[8px_8px_0_#120c0a] sm:p-7 ${p.n === 1 ? "bg-wine text-bone" : "bg-violet text-bone"}`}>
@@ -342,22 +420,31 @@ function Phases() {
               </span>
             </div>
             <p className="relative mt-2 font-semibold">{p.blurb}</p>
-            <p className="relative mt-1 text-sm font-bold opacity-80">{stats ? `${stats.byPhase[p.n] ?? 0} spots locked` : " "}</p>
-            <ul className="relative mt-6 grid grid-cols-4 gap-x-2 gap-y-4 sm:grid-cols-5">
+            <p className="relative mt-1 text-sm font-bold opacity-80">
+              {stats ? `${(stats.byPhase[p.n] ?? 0).toLocaleString("en-US")} claimed` : "\u00a0"}
+              {p.delegation ? " · Vaults welcome (delegate.xyz)" : ""}
+            </p>
+            <ul className="relative mt-5 grid gap-x-4 gap-y-2 sm:grid-cols-2">
               {p.communities.map((c, i) => {
                 const off = !c.contracts.length;
+                const n = stats?.byCommunity[c.name] ?? 0;
                 return (
-                  <li key={c.name} className="flex flex-col items-center text-center" title={`${c.name} · ${CHAIN_NAMES[c.chain]}${off ? " · checking soon" : ""}`}>
+                  <li key={c.name} className="flex items-center gap-3 border-b-2 border-ink/25 py-1.5" title={`${c.name} · ${CHAIN_NAMES[c.chain]}`}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={c.logo}
                       alt=""
                       loading="lazy"
-                      className={`claim-logo aspect-square w-14 rounded-full border-[3px] border-ink bg-bone object-cover shadow-[3px_3px_0_#120c0a] sm:w-16 ${off ? "opacity-50 grayscale" : ""}`}
+                      className={`claim-logo aspect-square w-10 shrink-0 rounded-full border-[3px] border-ink bg-bone object-cover shadow-[2px_2px_0_#120c0a] ${off ? "opacity-50 grayscale" : ""}`}
                       style={{ ["--r" as string]: `${((i * 37) % 13) - 6}deg` }}
                     />
-                    <span className="mt-1.5 text-[0.7rem] leading-tight font-bold">{c.name}</span>
-                    {off ? <span className="text-[0.6rem] font-bold uppercase opacity-70">soon</span> : c.chain === "robinhood" ? <span className="text-[0.6rem] font-bold uppercase opacity-70">Robinhood</span> : null}
+                    <span className="min-w-0 flex-1 leading-tight">
+                      <span className="block truncate text-sm font-bold">{c.name}</span>
+                      <span className="block text-[0.65rem] font-bold uppercase opacity-70">{off ? "Checking soon" : CHAIN_NAMES[c.chain]}</span>
+                    </span>
+                    <span className="display shrink-0 text-xl tabular-nums" aria-label={`${n} claimed`}>
+                      {stats ? n.toLocaleString("en-US") : "…"}
+                    </span>
                   </li>
                 );
               })}
@@ -373,9 +460,9 @@ function Vaults() {
   return (
     <section className="mt-16 grid gap-6 border-4 border-ink bg-sand p-6 sm:p-8 md:grid-cols-[1fr_1.4fr] md:items-center">
       <div>
-        <p className="font-bold uppercase tracking-[0.2em] text-wine">Keep your vault cold</p>
+        <p className="font-bold uppercase tracking-[0.2em] text-wine">Optional · keep your vault cold</p>
         <h2 className="display mt-1 text-4xl sm:text-5xl">Got a vault?</h2>
-        <p className="mt-2 font-medium">Your vault never connects here. Delegate once, then claim from your everyday wallet. It can prove you own the NFT, but it can&rsquo;t move or sell it.</p>
+        <p className="mt-2 font-medium">Only if your NFT sits in a vault. Your vault never connects here: delegate once, then claim from your everyday wallet. It can prove you own the NFT, but it can&rsquo;t move or sell it.</p>
       </div>
       <ol className="grid gap-3 sm:grid-cols-3">
         {[

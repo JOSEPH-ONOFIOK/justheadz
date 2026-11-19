@@ -2,8 +2,13 @@
 // Shared by the API and the UI.
 //
 // Phase 1: the blue chips. Phase 2: the communities from the Mochi claim.
-// Someone holding both gets Phase 1. Vaults count through delegate.xyz:
-// a vault that delegated to the connected wallet is checked too, and never has to connect.
+// Someone holding both gets Phase 1. 2,500 spots in total.
+//
+// Two ways to give a wallet:
+//   connect + sign  proves they own it. Beats a typed claim on the same wallet.
+//   type it         no wallet connection. Can be taken over by the owner signing.
+// Vaults (optional, per phase): with delegation on, a vault that delegated to the wallet on
+// delegate.xyz counts too, and never has to connect.
 
 import { X_HANDLE } from "./site";
 
@@ -13,7 +18,8 @@ export const CHAIN_NAMES: Record<Chain, string> = { ethereum: "Ethereum", robinh
 // contracts: [] = not checked yet (add the address to switch it on)
 export type Community = { name: string; chain: Chain; contracts: string[]; logo: string };
 export type PhaseStatus = "live" | "soon" | "closed";
-export type Phase = { n: 1 | 2; name: string; status: PhaseStatus; blurb: string; communities: Community[] };
+// delegation: also check vaults that delegated to the wallet on delegate.xyz
+export type Phase = { n: 1 | 2; name: string; status: PhaseStatus; delegation: boolean; blurb: string; communities: Community[] };
 
 const eth = (name: string, logo: string, ...contracts: string[]): Community => ({ name, chain: "ethereum", contracts, logo: `/communities/${logo}` });
 const rh = (name: string, logo: string, ...contracts: string[]): Community => ({ name, chain: "robinhood", contracts, logo: `/communities/${logo}` });
@@ -23,6 +29,7 @@ export const PHASES: Phase[] = [
     n: 1,
     name: "Phase 1",
     status: "live",
+    delegation: true,
     blurb: "The old heads. 2021 and 2022 blue chips mint first.",
     communities: [
       // CryptoPunks, plus punks wrapped as ERC-721
@@ -61,30 +68,29 @@ export const PHASES: Phase[] = [
     n: 2,
     name: "Phase 2",
     status: "live",
+    delegation: true,
     blurb: "The frens. Robinhood Chain and Ethereum communities mint next.",
     communities: [
       eth("Funkari", "funkari.jpg", "0x1fafd33d882e1c275c61066019a23c1999b5006e"),
       eth("Normies", "normies.jpg", "0x9eb6e2025b64f340691e424b7fe7022ffde12438"),
       rh("WIF Outlaws", "wif-outlaws.jpg", "0x12a4c7659a4b7c4a2870b5167c4f8b014c7fa690"),
-      rh("Clay StonKz", "clay-stonks.jpg", "0xde0acefc89d4cf5f4ce45a4fb8a51aa355091b44"),
       rh("CCFF00", "ccff00.svg", "0x505a22ffed8d37ebe580ffd98d2cdb0021189146"),
       rh("Soul Club", "soul-club.jpg", "0xd6889961584a42dc5d8196bd82a4c6d0f2b684c5"),
       eth("Argonauts", "argonauts.jpg", "0x387c41b0b2f1128de44db1bcf8baad085f26392c"),
       rh("Vaultlings", "vaultlings.jpg", "0x23708e501cbeaa92f45183197c673fdabf993484"),
-      rh("CannaCats", "cannacat.jpg", "0x53716c211179a342e37734f4fb46b276c975359a"),
       rh("Rekt TRADOOR", "rekt-tradooor.jpg", "0x7b3ecfa33657de415ff269dc97dfa82954cee706"),
       rh("Goat Ranch Club", "goat-ranch-club.jpg", "0x95a85681e28988b4ef503369470b4da7681c4bc8"),
       eth("Blokyz", "blokyz.jpg", "0x86ffb7988913e85a5a07d459a5165ab1273cfe62"),
       rh("TMO", "tmo.jpg", "0x0d58589536f442da1c192c89232448c23d8b41bb"),
       eth("Freedz", "freedz.jpg", "0x993873f58f0ce4728bbd68dd5fabcb75ef48e7c4"),
-      rh("Cash Grab", "cash-grab.jpg", "0x66de4a428a3b890abee81968bcfdb385fe80d22d"),
-      rh("Joystick Junkies", "joystick-junkies.jpg", "0x9294e3b8268369977f46ca263370da8ca2e7a351"),
-      eth("Chimpers", "chimpers.jpg", "0x307af7d28afee82092aa95d35644898311ca5360"),
     ],
   },
 ];
 
-export const ALL_COMMUNITIES = PHASES.flatMap((p) => p.communities.map((c) => ({ ...c, phase: p.n })));
+export const ALL_COMMUNITIES = PHASES.flatMap((p) => p.communities.map((c) => ({ ...c, phase: p.n, delegation: p.delegation })));
+
+// Spots in total, across both phases
+export const CLAIM_CAP = 2500;
 export const phaseOf = (community: string) => ALL_COMMUNITIES.find((c) => c.name === community)?.phase;
 
 // The claim post people like, repost and reply under. Empty until it's up:
@@ -109,9 +115,11 @@ export type Claim = {
   reposted?: boolean;
   replyLink?: string;
   claimedAt?: number;
+  signed?: boolean; // proved with a signature, rather than typed
+  lostTo?: string; // a typed claim the wallet's owner took over by signing
 };
 
 // In order: wallet, follow, like and repost, reply
 export const claimStepsDone = (c?: Claim) => !!(c?.community && c.followed && c.liked && c.reposted && c.replyLink);
 
-export type ClaimStats = { claimed: number; byPhase: Record<number, number>; byCommunity: Record<string, number> };
+export type ClaimStats = { claimed: number; cap: number; byPhase: Record<number, number>; byCommunity: Record<string, number> };
