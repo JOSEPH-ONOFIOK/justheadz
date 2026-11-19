@@ -4,6 +4,7 @@ import { getSession, sign, unsign } from "@/lib/auth";
 import { toPublic } from "@/lib/entry";
 import { GAME, POINTS, day, evoOf, fedToday, gameLeft, nextFeed, points, stageFor } from "@/lib/evolve";
 import { ALL_HEADS } from "@/lib/heads";
+import { OFF_BOARD } from "@/lib/site";
 import { store } from "@/lib/store";
 import { verifyShare } from "@/lib/xpost";
 
@@ -119,7 +120,7 @@ export async function GET() {
   if (!cache || Date.now() - cache.at > CACHE_MS) {
     const all = await store.all().catch(() => []);
     const rows = all
-      .filter((e) => e.evo?.head && !e.blocked)
+      .filter((e) => e.evo?.head && !e.blocked && !OFF_BOARD.has(e.handle.toLowerCase()))
       .map((e) => {
         const total = points(e).total;
         return { handle: e.handle, head: e.evo!.head!, points: total, stage: stageFor(total).n };

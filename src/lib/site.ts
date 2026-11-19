@@ -17,5 +17,8 @@ export const PINNED_ID = /\/status(?:es)?\/(\d+)/.exec(PINNED_POST)?.[1] ?? "";
 // Friends that must be tagged in the reply and the quote
 export const FRIENDS_NEEDED = 2;
 
+// Team and test accounts: they can use everything, but never show on the leaderboard
+export const OFF_BOARD = new Set(["dextervqsm", "zztest_evo", "zztest_14644"]);
+
 export const WALLET = /^0x[a-fA-F0-9]{40}$/;
 export const HANDLE = /^\w{1,15}$/;
