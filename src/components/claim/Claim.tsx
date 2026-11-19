@@ -177,7 +177,7 @@ function ReplyStep({ claim, onError }: { claim: Claim; onError: (e: string | nul
   const { claim: run } = useSession();
   const [link, setLink] = useState("");
   const [busy, setBusy] = useState(false);
-  const text = `${claimReplyText(claim.phase ?? 1, claim.community ?? "")}\n${HOST}/claim`;
+  const text = `${claimReplyText(claim.community ?? "")}\n${HOST}/claim`;
 
   const verify = async (e: FormEvent) => {
     e.preventDefault();
@@ -225,7 +225,7 @@ function ReplyStep({ claim, onError }: { claim: Claim; onError: (e: string | nul
 // ---------- the locked stub ----------
 function Stub({ claim, handle }: { claim: Claim; handle: string }) {
   const logo = logoOf(claim.community);
-  const share = `Locked my ${X_HANDLE} Phase ${claim.phase} spot as a ${claim.community} holder 👁️👁️\n\nHolders of the right heads claim free 👇\n${HOST}/claim`;
+  const share = `Locked my ${X_HANDLE} free mint spot as a ${claim.community} holder 👁️👁️\n\nHolders of the right heads claim free 👇\n${HOST}/claim`;
   return (
     <div className="claim-stub pop-in relative mx-auto max-w-2xl bg-ink text-sand shadow-[10px_10px_0_#ad3557]">
       <div className="grid gap-0 sm:grid-cols-[1fr_auto]">

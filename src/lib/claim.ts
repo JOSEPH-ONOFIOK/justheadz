@@ -107,8 +107,8 @@ export const phaseOf = (community: string) => ALL_COMMUNITIES.find((c) => c.name
 export const CLAIM_POST = "https://x.com/JustheadzHQ/status/2123446734466457794";
 export const CLAIM_POST_ID = /\/status(?:es)?\/(\d+)/.exec(CLAIM_POST)?.[1] ?? "";
 
-export const claimReplyText = (phase: number, community: string) =>
-  `Locked my ${X_HANDLE} Phase ${phase} spot as a ${community} holder 👁️👁️\n\nHeads only. Check yours 👇`;
+export const claimReplyText = (community: string) =>
+  `Locked my ${X_HANDLE} free mint spot as a ${community} holder 👁️👁️\n\nHeads only. Check yours 👇`;
 
 // What the wallet signs to prove it's theirs. Free: no transaction, no gas.
 export const signMessage = (wallet: string, handle: string, ts: number) =>
