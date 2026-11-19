@@ -456,8 +456,7 @@ function Phases() {
             </div>
             <p className="relative mt-2 font-semibold">{p.blurb}</p>
             <p className="relative mt-1 text-sm font-bold opacity-80">
-              {stats ? `${(stats.byPhase[p.n] ?? 0).toLocaleString("en-US")} claimed` : "\u00a0"}
-              {p.delegation ? " · Vaults welcome (delegate.xyz)" : ""}
+              {p.delegation ? "Vaults welcome (delegate.xyz)" : "\u00a0"}
             </p>
             <ul className="relative mt-5 grid gap-x-4 gap-y-2 sm:grid-cols-2">
               {p.communities.map((c, i) => {
