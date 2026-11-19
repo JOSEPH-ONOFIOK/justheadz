@@ -1,4 +1,4 @@
-import { authed, bad } from "@/lib/api";
+import { authed, bad, creditReferrer } from "@/lib/api";
 import { ipHash } from "@/lib/auth";
 import { TASK_ORDER, nextTask, toPublic, type TaskId } from "@/lib/entry";
 import { PINNED_ID, WALLET } from "@/lib/site";
@@ -100,5 +100,7 @@ async function complete(req: Request) {
 
   entry.updatedAt = now;
   await store.put(entry);
+  // Finishing the last step counts for whoever invited them
+  if (task === "quote" && entry.done.quote === now) await creditReferrer(entry).catch((e) => console.error("referral credit failed", e));
   return Response.json({ entry: toPublic(entry) });
 }

@@ -11,7 +11,7 @@ export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}));
   const handle = String(body.handle ?? "").trim().replace(/^@/, "");
   if (!HANDLE.test(handle)) return bad("That isn't a valid X handle.");
-  const entry = await enroll(handle);
+  const entry = await enroll(handle, undefined, typeof body.ref === "string" ? body.ref : undefined);
   (await cookies()).set(sessionCookie(entry.handle));
   return Response.json({ entry: toPublic(entry) });
 }

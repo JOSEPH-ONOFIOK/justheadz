@@ -7,5 +7,5 @@ export default function sitemap(): MetadataRoute.Sitemap {
     changeFrequency: "weekly",
     priority,
   });
-  return [page("", 1), page("/whitelist", 0.9), page("/pile", 0.6), page("/moods", 0.6)];
+  return [page("", 1), page("/whitelist", 0.9), page("/evolve", 0.9), page("/claim", 0.9), page("/pile", 0.6), page("/moods", 0.6)];
 }

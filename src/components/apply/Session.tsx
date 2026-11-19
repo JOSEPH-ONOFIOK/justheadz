@@ -1,10 +1,10 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import type { PublicEntry } from "@/lib/entry";
 
 type Auth = "x" | "dev" | "off";
-type Result = { error?: string };
+type Result = { error?: string; gained?: number; ticket?: string };
 
 type SessionValue = {
   ready: boolean;
@@ -15,6 +15,8 @@ type SessionValue = {
   devConnect: (handle: string) => Promise<Result>;
   disconnect: () => Promise<void>;
   task: (body: Record<string, unknown>) => Promise<Result>;
+  evolve: (body: Record<string, unknown>) => Promise<Result>;
+  claim: (body: Record<string, unknown>) => Promise<Result>;
 };
 
 const Ctx = createContext<SessionValue | null>(null);
@@ -43,6 +45,8 @@ async function post(url: string, body?: unknown) {
   return (await res.json().catch(() => ({ error: "Something went wrong. Please try again." }))) as {
     entry?: PublicEntry;
     error?: string;
+    gained?: number;
+    ticket?: string;
   };
 }
 
@@ -51,6 +55,18 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [auth, setAuth] = useState<Auth>("off");
   const [entry, setEntry] = useState<PublicEntry | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // Invite links carry ?ref=handle; it rides along through Connect X
+  const ref = useRef<string | null>(null);
+
+  useEffect(() => {
+    const r = new URLSearchParams(location.search).get("ref");
+    try {
+      if (r) sessionStorage.setItem("jh_ref", r);
+      ref.current = r ?? sessionStorage.getItem("jh_ref");
+    } catch {
+      ref.current = r;
+    }
+  }, []);
 
   useEffect(() => {
     // Messages from the X redirect, then tidy the address bar
@@ -77,11 +93,15 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   // back: a page to return to after X, such as /whitelist
   const connect = useCallback((back?: string) => {
     // Full page navigation: the route redirects to X's consent screen
-    location.href = back ? `/api/auth/x/start?to=${encodeURIComponent(back)}` : "/api/auth/x/start";
+    const q = new URLSearchParams();
+    if (back) q.set("to", back);
+    if (ref.current) q.set("ref", ref.current);
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- a full load: the route redirects to X
+    location.href = `/api/auth/x/start?${q}`;
   }, []);
 
   const devConnect = useCallback(async (handle: string) => {
-    const d = await post("/api/auth/dev", { handle });
+    const d = await post("/api/auth/dev", { handle, ref: ref.current });
     if (d.entry) setEntry(d.entry);
     return { error: d.error };
   }, []);
@@ -97,7 +117,19 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     return { error: d.error };
   }, []);
 
+  const evolve = useCallback(async (body: Record<string, unknown>) => {
+    const d = await post("/api/evolve", body);
+    if (d.entry) setEntry(d.entry);
+    return { error: d.error, gained: d.gained, ticket: d.ticket };
+  }, []);
+
+  const claim = useCallback(async (body: Record<string, unknown>) => {
+    const d = await post("/api/claim", body);
+    if (d.entry) setEntry(d.entry);
+    return { error: d.error };
+  }, []);
+
   return (
-    <Ctx.Provider value={{ ready, auth, entry, notice, connect, devConnect, disconnect, task }}>{children}</Ctx.Provider>
+    <Ctx.Provider value={{ ready, auth, entry, notice, connect, devConnect, disconnect, task, evolve, claim }}>{children}</Ctx.Provider>
   );
 }

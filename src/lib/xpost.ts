@@ -86,3 +86,24 @@ export async function verifyQuote(link: string, handle: string, wallet: string, 
   if (!r.post.hasImage) return { ok: false, error: "Attach your applicant card image to the post." };
   return { ok: true, link: `https://x.com/${r.post.author}/status/${r.id}` };
 }
+
+// Sharing an evolution stage: their own post tagging us with their evolution card attached
+export async function verifyShare(link: string, handle: string): Promise<Result> {
+  const r = await load(link, handle);
+  if ("ok" in r) return r;
+  if (!tagsUs(r.post.text)) return { ok: false, error: `Your post needs to tag ${X_HANDLE}.` };
+  if (!r.post.hasImage) return { ok: false, error: "Attach your evolution card image to the post." };
+  return { ok: true, link: `https://x.com/${r.post.author}/status/${r.id}` };
+}
+
+// Holder claim: a reply under the claim post (or, with none yet, a post of theirs tagging us)
+export async function verifyClaimReply(link: string, handle: string, postId: string): Promise<Result> {
+  const r = await load(link, handle);
+  if ("ok" in r) return r;
+  if (postId) {
+    if (r.post.replyTo !== postId) return { ok: false, error: "That isn't a reply to our claim post. Reply directly under it." };
+  } else if (!tagsUs(r.post.text)) {
+    return { ok: false, error: `Your post needs to tag ${X_HANDLE}.` };
+  }
+  return { ok: true, link: `https://x.com/${r.post.author}/status/${r.id}` };
+}

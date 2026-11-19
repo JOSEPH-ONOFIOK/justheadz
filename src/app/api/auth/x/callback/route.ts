@@ -21,7 +21,7 @@ export async function GET(req: Request) {
 
   try {
     const user = await exchangeAndFetchUser(code, o.verifier, `${origin}/api/auth/x/callback`);
-    const entry = await enroll(user.username, user);
+    const entry = await enroll(user.username, user, o.ref);
     const res = done("connected=1");
     res.cookies.set(sessionCookie(entry.handle));
     return res;

@@ -7,6 +7,8 @@ import { X_URL } from "@/lib/site";
 const LINKS = [
   { href: "/pile", label: "The Pile" },
   { href: "/moods", label: "Moods" },
+  { href: "/evolve", label: "Evolve" },
+  { href: "/claim", label: "Claim" },
   { href: "/whitelist", label: "Whitelist" },
 ];
 

@@ -44,7 +44,7 @@ const SESSION_DAYS = 30;
 
 export async function getSession() {
   const s = unsign<Session>((await cookies()).get(SESSION_COOKIE)?.value);
-  if (!s || Date.now() - s.iat > SESSION_DAYS * 864e5) return null;
+  if (!s || typeof s.iat !== "number" || !s.h || Date.now() - s.iat > SESSION_DAYS * 864e5) return null;
   return s;
 }
 
@@ -59,14 +59,15 @@ export function sessionCookie(handle: string) {
 
 // ---------- X OAuth 2.0 (PKCE) ----------
 // to: the page to come back to after X
-export type OAuthState = { state: string; verifier: string; ts: number; to?: string };
+// ref: the handle that invited them, if any
+export type OAuthState = { state: string; verifier: string; ts: number; to?: string; ref?: string };
 
-export function newOAuth(to?: string): OAuthState {
-  return { state: randomBytes(16).toString("base64url"), verifier: randomBytes(32).toString("base64url"), ts: Date.now(), to };
+export function newOAuth(to?: string, ref?: string): OAuthState {
+  return { state: randomBytes(16).toString("base64url"), verifier: randomBytes(32).toString("base64url"), ts: Date.now(), to, ref };
 }
 
 // Where Connect X may send people back to. Anything else goes to the application.
-const RETURN_PAGES = ["/whitelist"];
+const RETURN_PAGES = ["/whitelist", "/evolve", "/claim"];
 export const returnPage = (to: string | null | undefined) => (to && RETURN_PAGES.includes(to) ? to : "/whitelist");
 export const returnUrl = (origin: string, to: string | null | undefined, query: string) => `${origin}${returnPage(to)}?${query}`;
 

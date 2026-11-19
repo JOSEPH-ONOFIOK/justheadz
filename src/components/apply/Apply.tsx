@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, type FormEvent, type ReactNode } from "react";
 import { Eyes, type EyeMode } from "../Eyes";
 import { Morph } from "../motion/PageShell";
@@ -19,7 +20,7 @@ const pinned = PINNED_POST || X_URL;
 // One head per task; they wake up as tasks get done
 const PROGRESS = ["sad", "mad", "scream", "shook", "void", "smug"];
 
-function XLogo({ className = "h-4 w-4" }: { className?: string }) {
+export function XLogo({ className = "h-4 w-4" }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" className={`${className} fill-current`} aria-hidden="true">
       <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
@@ -103,7 +104,7 @@ function LinkProof({ task, onBusy }: { task: TaskId; onBusy: (b: boolean) => voi
   );
 }
 
-function DevConnect() {
+export function DevConnect() {
   const { devConnect } = useSession();
   const [handle, setHandle] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -154,7 +155,7 @@ function Application() {
   };
 
   // Must keep X_HANDLE, the wallet and the friend tags: the quote check looks for all three
-  const quoteText = `Just applied for the ${X_HANDLE} free mint 👁️👁️\n\nYou can become a Head too 👇\n${SITE.url.replace(/^https?:\/\//, "")}/whitelist\n\n${entry?.wallet ?? ""}\n\nTagging: @ @`;
+  const quoteText = `Just applied for the ${X_HANDLE} free mint 👁️👁️\n\nYou can become a Head too 👇\n${SITE.url.replace(/^https?:\/\//, "")}/whitelist?ref=${entry?.handle ?? ""}\n\n${entry?.wallet ?? ""}\n\nTagging: @ @`;
 
   return (
     <section className="relative px-4 pt-32 pb-24 sm:px-8 sm:pt-40 sm:pb-32">
@@ -220,6 +221,13 @@ function Application() {
                   Disconnect
                 </button>
               </div>
+
+              {!entry.blocked && (
+                <Link href="/evolve" className="group mt-4 flex items-center justify-between gap-3 border-4 border-ink bg-violet px-4 py-3 text-bone shadow-[4px_4px_0_#120c0a] transition-transform hover:-translate-y-0.5">
+                  <span className="font-bold">Every step here also evolves your head. +20 each.</span>
+                  <span className="display shrink-0">Evolve →</span>
+                </Link>
+              )}
 
               {entry.blocked ? (
                 <div className="pop-in mt-5 border-4 border-ink bg-wine p-6 text-center text-bone shadow-[6px_6px_0_#120c0a]">

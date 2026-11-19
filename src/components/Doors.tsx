@@ -6,7 +6,8 @@ import { Title } from "./motion/Title";
 export const DOORS = [
   { href: "/pile", n: "01", title: "The Pile", blurb: "Nine heads with tempers. Wake one up.", img: "/art/heads/scream.webp", morph: "door-pile", bg: "bg-wine text-bone", tilt: -2 },
   { href: "/moods", n: "02", title: "Moods", blurb: "Find the face you're making right now.", img: "/art/pfp-captain.webp", morph: "door-moods", bg: "bg-maroon text-bone", tilt: 1.5 },
-  { href: "/whitelist", n: "03", title: "Whitelist", blurb: "Six steps, in order. It isn't easy.", img: "/art/pfp-sailor.webp", morph: "door-whitelist", bg: "bg-ink text-sand", tilt: -1 },
+  { href: "/evolve", n: "03", title: "Evolve", blurb: "Every head starts asleep. Wake yours up.", img: "/art/heads/smug.webp", morph: "door-evolve", bg: "bg-violet text-bone", tilt: 1 },
+  { href: "/whitelist", n: "04", title: "Whitelist", blurb: "Six steps, in order. It isn't easy.", img: "/art/pfp-sailor.webp", morph: "door-whitelist", bg: "bg-ink text-sand", tilt: -1 },
 ] as const;
 
 export function Doors() {
@@ -17,7 +18,7 @@ export function Doors() {
         <Title as="h2" text="Get inside their heads" className="text-[clamp(2.6rem,7vw,6rem)]" />
       </Reveal>
 
-      <div className="mt-14 grid gap-12 sm:grid-cols-2 lg:grid-cols-3 lg:gap-10">
+      <div className="mt-14 grid gap-12 sm:grid-cols-2 lg:gap-10 xl:grid-cols-4">
         {DOORS.map((d, i) => (
           <Reveal key={d.href} delay={i * 120}>
             <Link
@@ -32,7 +33,7 @@ export function Doors() {
                 </Morph>
               </div>
               <div><span className="display text-6xl opacity-25">{d.n}</span></div>
-              <h3 className="display mt-2 text-4xl [overflow-wrap:anywhere] xl:text-5xl">{d.title}</h3>
+              <h3 className="display mt-2 text-4xl [overflow-wrap:anywhere] xl:text-[2rem] 2xl:text-4xl">{d.title}</h3>
               <p className="mt-3 text-lg font-medium">{d.blurb}</p>
               <span className="door-arrow display mt-8 inline-flex items-center gap-3 text-xl">
                 Go in

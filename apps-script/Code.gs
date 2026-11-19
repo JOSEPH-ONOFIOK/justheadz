@@ -32,6 +32,10 @@ var WALLETS = 'Wallets';
 var ENTRY_COLUMNS = [
   'key', 'handle', 'wallet', 'complete', 'blocked', 'followers', 'x_created',
   'tag_reply', 'quote_post', 'joined_at', 'completed_at', 'updated_at', 'data',
+  // Evolution, sent by the site with each save
+  'head', 'stage', 'evo_points', 'referrals', 'referred_by',
+  // Holder claim
+  'claim_phase', 'claim_community', 'claim_wallet', 'claim_vault', 'claimed_at',
 ];
 var WALLET_COLUMNS = ['wallet', 'handle'];
 var DATA_COL = ENTRY_COLUMNS.indexOf('data') + 1;
@@ -83,7 +87,7 @@ function json_(obj) {
 function run_(req) {
   switch (req.op) {
     case 'get': return getEntry_(req.handle);
-    case 'put': return withLock_(function () { putEntry_(req.entry); return true; });
+    case 'put': return withLock_(function () { putEntry_(req.entry, req.extra); return true; });
     case 'all': return allEntries_();
     case 'walletOwner': return walletOwner_(req.wallet);
     case 'claimWallet': return withLock_(function () { claimWallet_(req.wallet, req.handle, req.previous); return true; });
@@ -142,10 +146,11 @@ function getEntry_(handle) {
   return data ? JSON.parse(data) : null;
 }
 
-function putEntry_(entry) {
+function putEntry_(entry, extra) {
   if (!entry || !entry.handle) throw new Error('Entry needs a handle.');
   var sheet = sheet_(ENTRIES);
-  var values = [entryRow_(entry)];
+  ensureHeader_(sheet, ENTRY_COLUMNS);
+  var values = [entryRow_(entry, extra || {})];
   var row = findRow_(sheet, lower_(entry.handle)) || sheet.getLastRow() + 1;
   sheet.getRange(row, 1, 1, ENTRY_COLUMNS.length).setNumberFormat('@').setValues(values);
 }
@@ -161,8 +166,14 @@ function allEntries_() {
     .map(function (v) { return JSON.parse(v); });
 }
 
+// Adds header cells for columns introduced after the tab was made
+function ensureHeader_(sheet, columns) {
+  if (sheet.getLastColumn() >= columns.length) return;
+  sheet.getRange(1, 1, 1, columns.length).setNumberFormat('@').setValues([columns]).setFontWeight('bold');
+}
+
 // Same columns as signupRow() in src/lib/entry.ts, plus key and data
-function entryRow_(e) {
+function entryRow_(e, extra) {
   var done = e.done || {};
   var iso = function (t) { return t ? new Date(Number(t)).toISOString() : ''; };
   var complete = TASKS.every(function (t) { return done[t]; });
@@ -182,7 +193,7 @@ function entryRow_(e) {
     updated_at: iso(e.updatedAt),
     data: JSON.stringify(e),
   };
-  return ENTRY_COLUMNS.map(function (c) { return row[c]; });
+  return ENTRY_COLUMNS.map(function (c) { return c in row ? row[c] : extra[c] === undefined ? '' : String(extra[c]); });
 }
 
 // ---------- wallets ----------

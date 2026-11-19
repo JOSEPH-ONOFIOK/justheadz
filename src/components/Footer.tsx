@@ -14,6 +14,8 @@ export function Footer() {
           <div className="flex flex-wrap items-center gap-6 font-bold uppercase tracking-wide">
             <Link href="/pile" className="focus-ink hover:text-wine">The Pile</Link>
             <Link href="/moods" className="focus-ink hover:text-wine">Moods</Link>
+            <Link href="/evolve" className="focus-ink hover:text-wine">Evolve</Link>
+            <Link href="/claim" className="focus-ink hover:text-wine">Claim</Link>
             <Link href="/whitelist" className="focus-ink hover:text-wine">Whitelist</Link>
             {X_URL && (
               <a href={X_URL} target="_blank" rel="noreferrer" className="focus-ink hover:text-wine">

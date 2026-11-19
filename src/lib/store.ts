@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { cookieBase, sign, unsign } from "./auth";
-import type { Entry } from "./entry";
+import { sheetExtra, type Entry } from "./entry";
 
 // Storage, first one configured wins:
 //   Google Sheet    when GOOGLE_SHEET_URL is set (see apps-script/Code.gs).
@@ -64,6 +64,18 @@ const upstash: Store = {
   },
 };
 
+// Fixed-window rate limit kept in this server's memory
+const windows = new Map<string, { n: number; reset: number }>();
+function memoryLimit(k: string, max: number, windowSec: number) {
+  const now = Date.now();
+  const w = windows.get(k);
+  if (!w || w.reset < now) {
+    windows.set(k, { n: 1, reset: now + windowSec * 1000 });
+    return true;
+  }
+  return ++w.n <= max;
+}
+
 // ---------- Google Sheet (Apps Script web app) ----------
 const SHEET_URL = process.env.GOOGLE_SHEET_URL;
 
@@ -89,11 +101,13 @@ async function sheet<T = unknown>(op: string, args: Record<string, unknown> = {}
 
 const sheets: Store = {
   get: (handle) => sheet<Entry | null>("get", { handle }),
-  put: async (entry) => void (await sheet("put", { entry })),
+  // extra: the evolution and claim columns, so the sheet can be sorted by them
+  put: async (entry) => void (await sheet("put", { entry, extra: sheetExtra(entry) })),
   all: () => sheet<Entry[]>("all"),
   walletOwner: (wallet) => sheet<string | null>("walletOwner", { wallet }),
   claimWallet: async (wallet, handle, previous) => void (await sheet("claimWallet", { wallet, handle, previous })),
-  limit: (k, max, windowSec) => sheet<boolean>("limit", { key: k, max, windowSec }),
+  // In memory: a trip to the sheet per request would make every action slower
+  limit: async (k, max, windowSec) => memoryLimit(k, max, windowSec),
 };
 
 // ---------- Browser cookie ----------
@@ -101,7 +115,6 @@ const sheets: Store = {
 // browser. Signing means it can't be edited to fake tasks. There is no shared
 // list, so the export is empty and wallets can't be checked across accounts.
 const ENTRY_COOKIE = "jh_entry";
-const windows = new Map<string, { n: number; reset: number }>();
 
 const cookie: Store = {
   async get(handle) {
@@ -120,13 +133,7 @@ const cookie: Store = {
   async claimWallet() {},
   // Per server instance only, which is the best a cookie setup can do
   async limit(k, max, windowSec) {
-    const now = Date.now();
-    const w = windows.get(k);
-    if (!w || w.reset < now) {
-      windows.set(k, { n: 1, reset: now + windowSec * 1000 });
-      return true;
-    }
-    return ++w.n <= max;
+    return memoryLimit(k, max, windowSec);
   },
 };
 
