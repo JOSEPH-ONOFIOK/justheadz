@@ -8,11 +8,11 @@ import { store } from "@/lib/store";
 import { verifyClaimReply } from "@/lib/xpost";
 
 // POST { step, ... } moves the signed-in account through the holder claim:
+//   follow                             clicked follow (with notifications on) on our X account: first
 //   wallet  { wallet, ts, signature }  connected: the wallet signs a free message
 //   wallet  { wallet }                 typed: no signature
 //                                      Either way we look for an eligible NFT in the wallet, and in
 //                                      vaults that delegated to it (phases with delegation on).
-//   follow                             clicked follow on our X account
 //   engage  { action: like|repost }    on the claim post
 //   reply   { link }                   a reply under the claim post (verified on X)
 //   confirm                            retry the final check, if a chain was down
@@ -32,6 +32,7 @@ const live = new Set(PHASES.filter((p) => p.status === "live").map((p) => p.n));
 const soonMsg = (found: Found[]) => `Your ${found[0].community} spot is in Phase ${found[0].phase}, which isn't open yet. Come back when it opens.`;
 const downMsg = (down: string[]) => `We couldn't reach ${down.join(" and ")} just now. Try again in a minute.`;
 const FULL = `All ${CLAIM_CAP.toLocaleString("en-US")} spots are claimed.`;
+const communityFull = (names: string[]) => `${[...new Set(names)].join(" and ")} ${names.length > 1 ? "are" : "is"} fully claimed. Hold another community? Check that wallet.`;
 const TAKEN = "That wallet, or the vault behind it, already claimed with another X account.";
 const key = (addr: string) => `claim:${addr.toLowerCase()}`;
 
@@ -50,10 +51,6 @@ async function holders(me: string, addrs: (string | undefined)[], signed: boolea
   return { blocked: false, others };
 }
 
-async function claimedCount() {
-  return (await store.all()).filter((e) => e.claim?.claimedAt).length;
-}
-
 async function run(req: Request) {
   const a = await authed(req);
   if ("error" in a) return a.error;
@@ -65,6 +62,7 @@ async function run(req: Request) {
 
   switch (body.step) {
     case "wallet": {
+      if (!c.followed) return bad(`Follow ${X_HANDLE} first.`);
       const wallet = String(body.wallet ?? "").trim();
       if (!WALLET.test(wallet) || isBurn(wallet)) return bad("That isn't a wallet you can claim with. It starts with 0x followed by 40 characters.");
       const signed = body.signature !== undefined;
@@ -80,10 +78,25 @@ async function run(req: Request) {
       }
       const open = found.filter((f) => live.has(f.phase));
       if (!open.length) return bad(soonMsg(found));
-      // The best holding whose wallets nobody else has for good
+      // The best holding whose wallets nobody else has for good, in a community with room
       let pick: Found | null = null;
-      for (const f of open) if (!(await holders(me, [wallet, f.via], signed)).blocked) { pick = f; break; }
-      if (!pick) return bad(TAKEN);
+      let blocked = false;
+      const full: string[] = [];
+      for (const f of open) {
+        if ((await holders(me, [wallet, f.via], signed)).blocked) {
+          blocked = true;
+          continue;
+        }
+        const room = await store.spotRoom(f.community);
+        if (room === "full") return bad(FULL);
+        if (room === "community_full") {
+          full.push(f.community);
+          continue;
+        }
+        pick = f;
+        break;
+      }
+      if (!pick) return bad(full.length ? communityFull(full) : blocked ? TAKEN : FULL);
       Object.assign(c, { wallet: wallet.toLowerCase(), via: pick.via, community: pick.community, phase: pick.phase, signed });
       if (!c.via) delete c.via;
       delete c.lostTo;
@@ -91,12 +104,12 @@ async function run(req: Request) {
     }
 
     case "follow":
-      if (!c.community) return bad("Check your wallet first.");
       c.followed = true;
       break;
 
     case "engage":
       if (!c.followed) return bad(`Follow ${X_HANDLE} first.`);
+      if (!c.community) return bad("Check your wallet first.");
       if (body.action === "like") c.liked = true;
       else if (body.action === "repost") c.reposted = true;
       else return bad("Unknown action.");
@@ -125,29 +138,54 @@ async function run(req: Request) {
   if (claimStepsDone(c) && c.wallet) {
     const { found, down } = await findHoldings(c.wallet);
     const open = found.filter((f) => live.has(f.phase));
-    const still = open.find((f) => f.community === c.community && f.via === c.via) ?? open[0];
-    const h = still ? await holders(me, [c.wallet, still.via], !!c.signed) : null;
-    if (!still) {
-      error = down.length ? downMsg(down) : "The NFT isn't in that wallet or its vault any more. Check your wallet again.";
-      if (!down.length) {
-        delete c.community; // back to the wallet step
-        delete c.phase;
+    // The community they picked first, then anything else they hold
+    const order = [...open.filter((f) => f.community === c.community && f.via === c.via), ...open.filter((f) => !(f.community === c.community && f.via === c.via))];
+    const full: string[] = [];
+    let blocked = false;
+    let locked = false;
+    let allFull = false;
+    for (const f of order) {
+      const h = await holders(me, [c.wallet, f.via], !!c.signed);
+      if (h.blocked) {
+        blocked = true;
+        continue;
       }
-    } else if (h!.blocked) error = TAKEN;
-    else if ((await claimedCount()) >= CLAIM_CAP) error = FULL;
-    else {
+      // Counted and taken in one step inside the sheet script, so no cap can be passed
+      const r = await store.takeSpot(me, f.community, h.others.map((o) => o.handle));
+      if (r === "full") {
+        allFull = true;
+        break;
+      }
+      if (r === "community_full") {
+        full.push(f.community);
+        continue;
+      }
       // A signed claim takes the wallet from typed claims on it
-      for (const other of h!.others) {
+      for (const other of h.others) {
         const oc = other.claim!;
         other.claim = { wallet: oc.wallet, followed: oc.followed, liked: oc.liked, reposted: oc.reposted, replyLink: oc.replyLink, lostTo: entry.handle };
         other.updatedAt = Date.now();
         await store.put(other);
       }
       await store.claimWallet(key(c.wallet), me);
-      if (still.via) await store.claimWallet(key(still.via), me);
-      Object.assign(c, { community: still.community, phase: still.phase, via: still.via, claimedAt: Date.now() });
+      if (f.via) await store.claimWallet(key(f.via), me);
+      Object.assign(c, { community: f.community, phase: f.phase, via: f.via, claimedAt: Date.now() });
       if (!c.via) delete c.via;
       stats = null;
+      locked = true;
+      break;
+    }
+    if (!locked) {
+      if (!open.length) {
+        error = down.length ? downMsg(down) : "The NFT isn't in that wallet or its vault any more. Check your wallet again.";
+        if (!down.length) {
+          delete c.community; // back to the wallet step
+          delete c.phase;
+        }
+      } else if (allFull) error = FULL;
+      else if (full.length) error = communityFull(full);
+      else if (blocked) error = TAKEN;
+      else error = FULL;
     }
   }
 

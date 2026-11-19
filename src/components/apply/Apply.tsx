@@ -237,6 +237,9 @@ function Application() {
               ) : (
                 <div className="mt-5 flex flex-col gap-4">
                   <Step n={1} title={`Follow ${X_HANDLE}`} state={state("follow")}>
+                    <p className="display mb-3 flex items-center gap-2 border-4 border-ink bg-wine px-3 py-2 text-lg leading-tight text-bone sm:text-xl">
+                      <span aria-hidden="true">🔔</span> Turn on notis: tap the bell on our profile.
+                    </p>
                     <button
                       onClick={() => {
                         openX(intent("follow", { screen_name: US }));

@@ -17,8 +17,9 @@ const claimPost = CLAIM_POST || X_URL;
 const short = (a?: string) => (a ? `${a.slice(0, 6)}…${a.slice(-4)}` : "");
 const logoOf = (name?: string) => ALL_COMMUNITIES.find((c) => c.name === name)?.logo;
 
-const STEPS = ["Wallet", "Follow", "Like + repost", "Reply"] as const;
-const stepOf = (c: Claim) => (!c.community ? 0 : !c.followed ? 1 : !c.liked || !c.reposted ? 2 : 3);
+// Follow (with notifications on) comes first
+const STEPS = ["Follow", "Wallet", "Like + repost", "Reply"] as const;
+const stepOf = (c: Claim) => (!c.followed ? 0 : !c.community ? 1 : !c.liked || !c.reposted ? 2 : 3);
 
 // ---------- step 1: wallet ----------
 function WalletStep({ claim, onError }: { claim: Claim; onError: (e: string | null) => void }) {
@@ -123,6 +124,50 @@ function WalletStep({ claim, onError }: { claim: Claim; onError: (e: string | nu
         )}
       </div>
       )}
+    </div>
+  );
+}
+
+// ---------- step 1: follow, notifications on ----------
+export function NotisBanner({ className = "" }: { className?: string }) {
+  return (
+    <p className={`display flex items-center gap-3 border-4 border-ink bg-wine px-4 py-3 text-xl leading-tight text-bone shadow-[4px_4px_0_#120c0a] sm:text-2xl ${className}`}>
+      <span aria-hidden="true" className="text-3xl">
+        🔔
+      </span>
+      <span>Turn on notis. Spots drop on X first.</span>
+    </p>
+  );
+}
+
+function FollowStep({ onError }: { onError: (e: string | null) => void }) {
+  const { claim: run } = useSession();
+  return (
+    <div>
+      <NotisBanner />
+      <ol className="mt-4 list-decimal space-y-1 pl-5 font-semibold">
+        <li>Follow {X_HANDLE}.</li>
+        <li>
+          On our profile, tap the <b>bell 🔔</b> and choose <b>All posts</b>.
+        </li>
+      </ol>
+      <div className="mt-4 flex flex-wrap gap-3">
+        <button
+          type="button"
+          onClick={() => {
+            openX(intent("follow", { screen_name: US }));
+            run({ step: "follow" }).then((r) => onError(r.error ?? null));
+          }}
+          className="btn bg-ink text-sand"
+        >
+          <span className="flex items-center gap-2">
+            <XLogo /> Follow + turn on notis
+          </span>
+        </button>
+        <a href={X_URL} target="_blank" rel="noreferrer" className="btn bg-bone text-sm">
+          <span>Open profile for the 🔔</span>
+        </a>
+      </div>
     </div>
   );
 }
@@ -233,7 +278,7 @@ function Flow() {
   const [error, setError] = useState<string | null>(null);
   const [rewallet, setRewallet] = useState(false);
   const c: Claim = entry?.claim ?? {};
-  const step = rewallet ? 0 : stepOf(c);
+  const step = rewallet ? 1 : stepOf(c);
   const done = !!c.claimedAt;
 
   if (!ready) return <p className="display text-center text-2xl opacity-50">Loading…</p>;
@@ -312,8 +357,9 @@ function Flow() {
           )}
 
           <div className="p-5 sm:p-8">
-            <h3 className="display mb-3 text-3xl sm:text-4xl">{["Prove the bag", `Follow ${X_HANDLE}`, "Like and repost", "Say it out loud"][step]}</h3>
-            {step === 0 && (
+            <h3 className="display mb-3 text-3xl sm:text-4xl">{[`Follow ${X_HANDLE}`, "Prove the bag", "Like and repost", "Say it out loud"][step]}</h3>
+            {step === 0 && <FollowStep onError={setError} />}
+            {step === 1 && (
               <WalletStep
                 claim={c}
                 onError={(e) => {
@@ -321,20 +367,6 @@ function Flow() {
                   if (!e) setRewallet(false);
                 }}
               />
-            )}
-            {step === 1 && (
-              <button
-                type="button"
-                onClick={() => {
-                  openX(intent("follow", { screen_name: US }));
-                  run({ step: "follow" }).then((r) => setError(r.error ?? null));
-                }}
-                className="btn bg-ink text-sand"
-              >
-                <span className="flex items-center gap-2">
-                  <XLogo /> Follow on X
-                </span>
-              </button>
             )}
             {step === 2 && (
               <div className="flex flex-wrap items-center gap-3">
@@ -415,6 +447,9 @@ function Phases() {
             </span>
             <div className="relative flex flex-wrap items-center gap-3">
               <h3 className="display text-4xl sm:text-5xl">{p.name}</h3>
+              <span className="chip bg-ink text-xs text-sand">
+                <span className="inline-block skew-x-[9deg]">Free mint</span>
+              </span>
               <span className={`chip text-xs ${p.status === "live" ? "bg-sand text-ink" : "bg-ink text-sand"}`}>
                 <span className="inline-block skew-x-[9deg]">{p.status === "live" ? "Claiming now" : p.status === "soon" ? "Opens soon" : "Closed"}</span>
               </span>
@@ -427,7 +462,6 @@ function Phases() {
             <ul className="relative mt-5 grid gap-x-4 gap-y-2 sm:grid-cols-2">
               {p.communities.map((c, i) => {
                 const off = !c.contracts.length;
-                const n = stats?.byCommunity[c.name] ?? 0;
                 return (
                   <li key={c.name} className="flex items-center gap-3 border-b-2 border-ink/25 py-1.5" title={`${c.name} · ${CHAIN_NAMES[c.chain]}`}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -441,9 +475,6 @@ function Phases() {
                     <span className="min-w-0 flex-1 leading-tight">
                       <span className="block truncate text-sm font-bold">{c.name}</span>
                       <span className="block text-[0.65rem] font-bold uppercase opacity-70">{off ? "Checking soon" : CHAIN_NAMES[c.chain]}</span>
-                    </span>
-                    <span className="display shrink-0 text-xl tabular-nums" aria-label={`${n} claimed`}>
-                      {stats ? n.toLocaleString("en-US") : "…"}
                     </span>
                   </li>
                 );
@@ -489,6 +520,10 @@ export function ClaimPage() {
     <SessionProvider>
       <section className="relative px-4 pt-32 pb-24 sm:px-8 sm:pt-40 sm:pb-32">
         <div className="mx-auto max-w-5xl">
+          <div className="pop-in mb-10 -rotate-1 border-4 border-ink bg-wine px-4 py-4 text-center text-bone shadow-[6px_6px_0_#120c0a] sm:px-8 sm:py-5" role="note">
+            <p className="display text-[clamp(1.4rem,4.2vw,2.6rem)] leading-tight">Spots are limited and can be filled anytime.</p>
+            <p className="display mt-1 text-[clamp(1rem,2.6vw,1.5rem)] text-sand">Grab a head while you can.</p>
+          </div>
           <div className="text-center">
             <Morph name="door-claim">
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -497,7 +532,7 @@ export function ClaimPage() {
             <p className="mb-2 font-bold uppercase tracking-[0.2em] text-wine">Holder claim</p>
             <Title text="Claim" className="text-[clamp(3rem,12vw,9rem)]" />
             <p className="mx-auto mt-4 max-w-xl text-lg font-medium">
-              Hold one of the heads below? You&rsquo;re already in. Prove it with a free signature, do three quick things on X, and your mint spot is locked. Vault holders claim from a hot wallet.
+              Hold one of the communities below? You get a free mint spot. Follow with notis on, give your wallet, like, repost and reply, and it&rsquo;s locked. Both phases are free.
             </p>
           </div>
           <div className="mx-auto mt-10 max-w-3xl">

@@ -29,6 +29,7 @@
 
 var ENTRIES = 'Entries';
 var WALLETS = 'Wallets';
+var SPOTS = 'Spots';
 var ENTRY_COLUMNS = [
   'key', 'handle', 'wallet', 'complete', 'blocked', 'followers', 'x_created',
   'tag_reply', 'quote_post', 'joined_at', 'completed_at', 'updated_at', 'data',
@@ -38,6 +39,45 @@ var ENTRY_COLUMNS = [
   'claim_phase', 'claim_community', 'claim_wallet', 'claim_vault', 'claimed_at',
 ];
 var WALLET_COLUMNS = ['wallet', 'handle'];
+var SPOT_COLUMNS = ['handle', 'community', 'taken_at'];
+
+// ---------- holder claim caps: change these here, then redeploy (New version) ----------
+// Spots across every community
+var TOTAL_CAP = 3000;
+// Spots per community, by the name the site uses. A community not listed is only held to TOTAL_CAP.
+var OG_CAP = 100;
+var COMMUNITY_CAPS = {
+  // Phase 1: the OG communities
+  'CryptoPunks': OG_CAP, 'Pudgy Penguins': OG_CAP, 'CyberKongz': OG_CAP, 'Milady': OG_CAP,
+  'Bored Ape Yacht Club': OG_CAP, 'Mutant Ape Yacht Club': OG_CAP, 'Lil Pudgys': OG_CAP, 'Doodles': OG_CAP,
+  'VeeFriends': OG_CAP, 'Cool Cats': OG_CAP, 'Meebits': OG_CAP, 'DeadFellaz': OG_CAP, 'Azuki': OG_CAP,
+  'Moonbirds': OG_CAP, 'Sappy Seals': OG_CAP, 'CloneX': OG_CAP, 'World of Women': OG_CAP, 'Max Pain and Frens': OG_CAP,
+  // Phase 2
+  'Funkari': 50,
+  'WIF Outlaws': 150,
+  'Souls.club': 150,
+  'Vaultlings': 100,
+  'The Goat Ranch Club': 150,
+  'TMO Initiates': 100,
+  'Normies': 120,
+  'CCFF00': 200,
+  'Argonauts': 30,
+  'Rekt Tradooor': 30,
+  'Original Blokyz': 100,
+  'Freedz': 70,
+  'Internet Monkes': 70,
+  'pyopyopyo': 120,
+  'Clay Stonkz': 70,
+  'The Mutual Fun': 100,
+  'FUDS': 30,
+  'Goat Street': 80,
+  'AGNTS': 70,
+  'Vamps': 100,
+  'Suited Ape Society': 100,
+  'Yield Field Deeds': 30,
+  'Companions by Wfit': 100,
+  'Cash Grab RH': 40,
+};
 var DATA_COL = ENTRY_COLUMNS.indexOf('data') + 1;
 var TASKS = ['follow', 'engage', 'tag', 'memory', 'wallet', 'quote'];
 
@@ -46,10 +86,12 @@ var TASKS = ['follow', 'engage', 'tag', 'memory', 'wallet', 'quote'];
 var COLUMNS = {};
 COLUMNS[ENTRIES] = ENTRY_COLUMNS;
 COLUMNS[WALLETS] = WALLET_COLUMNS;
+COLUMNS[SPOTS] = SPOT_COLUMNS;
 
 function setup() {
   sheet_(ENTRIES);
   sheet_(WALLETS);
+  sheet_(SPOTS);
 }
 
 function prepareSheet_(sheet, columns) {
@@ -63,7 +105,7 @@ function prepareSheet_(sheet, columns) {
 // ---------- web app ----------
 
 // Bump when this file changes, so the live copy can be checked: open the /exec URL in a browser
-var VERSION = 3; // 3: evolution and holder claim columns
+var VERSION = 7; // 7: caps for every Phase 2 community. 6: 3,000 total, more Phase 2 caps. 5: per-community caps. 4: Spots tab. 3: evolution and claim columns
 
 function doGet() {
   return json_({ ok: true, version: VERSION });
@@ -95,6 +137,8 @@ function run_(req) {
     case 'walletOwner': return walletOwner_(req.wallet);
     case 'claimWallet': return withLock_(function () { claimWallet_(req.wallet, req.handle, req.previous); return true; });
     case 'limit': return withLock_(function () { return limit_(req.key, req.max, req.windowSec); });
+    case 'takeSpot': return withLock_(function () { return takeSpot_(req.handle, req.community, req.release || []); });
+    case 'spotRoom': return spotRoom_(req.community);
     default: throw new Error('Unknown op: ' + req.op);
   }
 }
@@ -217,6 +261,55 @@ function claimWallet_(wallet, handle, previous) {
   var key = lower_(wallet);
   var row = findRow_(sheet, key) || sheet.getLastRow() + 1;
   sheet.getRange(row, 1, 1, 2).setNumberFormat('@').setValues([[key, lower_(handle)]]);
+}
+
+// ---------- holder claim spots ----------
+
+function capOf_(community) {
+  var want = lower_(community);
+  for (var name in COMMUNITY_CAPS) if (lower_(name) === want) return COMMUNITY_CAPS[name];
+  return Infinity;
+}
+
+// Rows already taken: in total, and for one community
+function spotCounts_(sheet, community) {
+  var n = sheet.getLastRow() - 1;
+  if (n < 1) return { total: 0, community: 0 };
+  var want = lower_(community);
+  var mine = sheet.getRange(2, 2, n, 1).getValues().filter(function (r) { return lower_(r[0]) === want; }).length;
+  return { total: n, community: mine };
+}
+
+// 'ok' | 'full' (every spot gone) | 'community_full' (this community's spots gone)
+function roomFor_(sheet, community) {
+  var c = spotCounts_(sheet, community);
+  if (c.total >= TOTAL_CAP) return 'full';
+  if (c.community >= capOf_(community)) return 'community_full';
+  return 'ok';
+}
+
+// One row per locked claim. Counting and adding happen under the same lock, so two people
+// can never both get the last spot. release: handles whose spot is freed first (a takeover).
+// Returns 'ok' (they have a spot), 'full' or 'community_full'.
+function takeSpot_(handle, community, release) {
+  var sheet = sheet_(SPOTS);
+  ensureHeader_(sheet, SPOT_COLUMNS);
+  release.forEach(function (h) {
+    var r = findRow_(sheet, lower_(h));
+    if (r) sheet.deleteRow(r);
+  });
+  var key = lower_(handle);
+  if (!key) throw new Error('takeSpot needs a handle.');
+  if (findRow_(sheet, key)) return 'ok';
+  var room = roomFor_(sheet, community);
+  if (room !== 'ok') return room;
+  sheet.getRange(sheet.getLastRow() + 1, 1, 1, 3).setNumberFormat('@').setValues([[key, String(community || ''), new Date().toISOString()]]);
+  return 'ok';
+}
+
+// Whether a community still has room, for a heads-up before the X steps (no lock: a hint only)
+function spotRoom_(community) {
+  return roomFor_(sheet_(SPOTS), community);
 }
 
 // ---------- rate limit ----------

@@ -17,7 +17,15 @@ interface Store {
   claimWallet(wallet: string, handle: string, previous?: string): Promise<void>;
   // Fixed-window rate limit. Returns true when the call is allowed.
   limit(key: string, max: number, windowSec: number): Promise<boolean>;
+  // Holder claim spots, counted in one place so no cap can be passed. The caps (total and per
+  // community) live in Code.gs. Takes a spot for handle in `community`, freeing `release` first.
+  takeSpot(handle: string, community: string, release?: string[]): Promise<SpotResult>;
+  // Whether a community still has room: a hint before the X steps, not a reservation
+  spotRoom(community: string): Promise<SpotResult>;
 }
+
+export type SpotResult = "ok" | "full" | "community_full";
+const TOTAL_FALLBACK = 3000; // only for stores without Code.gs caps
 
 const key = (h: string) => h.toLowerCase();
 
@@ -56,6 +64,22 @@ const upstash: Store = {
   async claimWallet(wallet, handle, previous) {
     if (previous) await redis("DEL", `w:${previous.toLowerCase()}`);
     await redis("SET", `w:${wallet.toLowerCase()}`, key(handle));
+  },
+  // Total cap only: per-community caps live in Code.gs
+  async takeSpot(handle, _community, release = []) {
+    for (const r of release) await redis("SREM", "spots", key(r));
+    const h = key(handle);
+    if (await redis<number>("SISMEMBER", "spots", h)) return "ok";
+    await redis("SADD", "spots", h);
+    // Counted after adding: if this went past the cap, give it back
+    if ((await redis<number>("SCARD", "spots")) > TOTAL_FALLBACK) {
+      await redis("SREM", "spots", h);
+      return "full";
+    }
+    return "ok";
+  },
+  async spotRoom() {
+    return (await redis<number>("SCARD", "spots")) >= TOTAL_FALLBACK ? "full" : "ok";
   },
   async limit(k, max, windowSec) {
     const n = await redis<number>("INCR", `rl:${k}`);
@@ -108,6 +132,27 @@ const sheets: Store = {
   claimWallet: async (wallet, handle, previous) => void (await sheet("claimWallet", { wallet, handle, previous })),
   // In memory: a trip to the sheet per request would make every action slower
   limit: async (k, max, windowSec) => memoryLimit(k, max, windowSec),
+  // The sheet script counts and takes the spot under one lock (Code.gs version 4+)
+  async takeSpot(handle, community, release = []) {
+    try {
+      return await sheet<SpotResult>("takeSpot", { handle, community, release });
+    } catch (e) {
+      // An older Code.gs without spots: count locked claims against the total (can race, no community caps)
+      if (!String(e).includes("Unknown op")) throw e;
+      console.warn("Code.gs is older than version 5: redeploy it so the claim caps apply");
+      const me = key(handle);
+      const taken = (await sheets.all()).filter((x) => x.claim?.claimedAt && key(x.handle) !== me && !release.some((r) => key(r) === key(x.handle))).length;
+      return taken < TOTAL_FALLBACK ? "ok" : "full";
+    }
+  },
+  async spotRoom(community) {
+    try {
+      return await sheet<SpotResult>("spotRoom", { community });
+    } catch (e) {
+      if (!String(e).includes("Unknown op")) throw e;
+      return "ok";
+    }
+  },
 };
 
 // ---------- Browser cookie ----------
@@ -134,6 +179,13 @@ const cookie: Store = {
   // Per server instance only, which is the best a cookie setup can do
   async limit(k, max, windowSec) {
     return memoryLimit(k, max, windowSec);
+  },
+  // No shared list without a database
+  async takeSpot() {
+    return "ok";
+  },
+  async spotRoom() {
+    return "ok";
   },
 };
 
