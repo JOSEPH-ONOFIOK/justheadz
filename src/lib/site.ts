@@ -11,7 +11,7 @@ export const X_URL = `https://x.com/${X_HANDLE.slice(1)}`;
 
 // The pinned post people like, repost, reply under and quote. Empty until it's up:
 // until then replies and quotes only need to tag X_HANDLE.
-export const PINNED_POST = "https://x.com/JustheadzHQ/status/2122721607198142734?s=20";
+export const PINNED_POST = "https://x.com/JustheadzHQ/status/2123446734466457794";
 export const PINNED_ID = /\/status(?:es)?\/(\d+)/.exec(PINNED_POST)?.[1] ?? "";
 
 // Friends that must be tagged in the reply and the quote
