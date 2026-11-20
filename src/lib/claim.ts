@@ -114,10 +114,10 @@ export function shownCap(claimed: number) {
 // Phase 1 communities not listed get OG_SPOTS.
 export const OG_SPOTS = 100;
 export const SPOTS: Record<string, number> = {
-  Funkari: 50, "WIF Outlaws": 150, "Souls.club": 150, Vaultlings: 100, "The Goat Ranch Club": 150, "TMO Initiates": 100,
-  Normies: 120, CCFF00: 200, Argonauts: 30, "Rekt Tradooor": 30, "Original Blokyz": 100, Freedz: 70, "Internet Monkes": 70,
+  Funkari: 50, "WIF Outlaws": 150, "Souls.club": 150, Vaultlings: 100, "The Goat Ranch Club": 180, "TMO Initiates": 100,
+  Normies: 120, CCFF00: 240, Argonauts: 30, "Rekt Tradooor": 30, "Original Blokyz": 100, Freedz: 70, "Internet Monkes": 70,
   pyopyopyo: 120, "Clay Stonkz": 70, "The Mutual Fun": 100, FUDS: 30, "Goat Street": 80, AGNTS: 70, Vamps: 100,
-  "Suited Ape Society": 100, "Yield Field Deeds": 30, "Companions by Wfit": 100, "Cash Grab RH": 40,
+  "Suited Ape Society": 100, "Yield Field Deeds": 30, "Companions by Wfit": 140, "Cash Grab RH": 40,
 };
 export const spotsOf = (community: string) => SPOTS[community] ?? (phaseOf(community) === 1 ? OG_SPOTS : 0);
 

@@ -57,10 +57,10 @@ var COMMUNITY_CAPS = {
   'WIF Outlaws': 150,
   'Souls.club': 150,
   'Vaultlings': 100,
-  'The Goat Ranch Club': 150,
+  'The Goat Ranch Club': 180,
   'TMO Initiates': 100,
   'Normies': 120,
-  'CCFF00': 200,
+  'CCFF00': 240,
   'Argonauts': 30,
   'Rekt Tradooor': 30,
   'Original Blokyz': 100,
@@ -75,7 +75,7 @@ var COMMUNITY_CAPS = {
   'Vamps': 100,
   'Suited Ape Society': 100,
   'Yield Field Deeds': 30,
-  'Companions by Wfit': 100,
+  'Companions by Wfit': 140,
   'Cash Grab RH': 40,
 };
 var DATA_COL = ENTRY_COLUMNS.indexOf('data') + 1;
@@ -105,7 +105,7 @@ function prepareSheet_(sheet, columns) {
 // ---------- web app ----------
 
 // Bump when this file changes, so the live copy can be checked: open the /exec URL in a browser
-var VERSION = 7; // 7: caps for every Phase 2 community. 6: 3,000 total, more Phase 2 caps. 5: per-community caps. 4: Spots tab. 3: evolution and claim columns
+var VERSION = 8; // 8: CCFF00 240, Companions 140, Goat Ranch 180. 7: 7: caps for every Phase 2 community. 6: 3,000 total, more Phase 2 caps. 5: per-community caps. 4: Spots tab. 3: evolution and claim columns
 
 function doGet() {
   return json_({ ok: true, version: VERSION });
