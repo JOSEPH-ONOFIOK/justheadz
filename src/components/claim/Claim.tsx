@@ -6,7 +6,7 @@ import { SessionProvider, useSession } from "../apply/Session";
 import { Morph } from "../motion/PageShell";
 import { Title } from "../motion/Title";
 import { connectAndSign, discoverWallets, walletError, type WalletOption } from "./wallets";
-import { ALL_COMMUNITIES, CHAIN_NAMES, CLAIM_POST, CLAIM_POST_ID, PHASES, claimReplyText, signMessage, shownCap, type Claim, type ClaimStats } from "@/lib/claim";
+import { ALL_COMMUNITIES, CHAIN_NAMES, CLAIM_POST, CLAIM_POST_ID, PHASES, claimReplyText, signMessage, shownCap, spotsOf, type Claim, type ClaimStats } from "@/lib/claim";
 import { SITE, WALLET, X_HANDLE, X_URL } from "@/lib/site";
 
 const US = X_HANDLE.slice(1);
@@ -410,9 +410,6 @@ function Flow() {
 }
 
 // ---------- who's eligible ----------
-// Phase 2 caps from Code.gs added up (display only)
-const PHASE2_SPOTS = 2160;
-
 function Phases() {
   const [stats, setStats] = useState<ClaimStats | null>(null);
   useEffect(() => {
@@ -460,7 +457,7 @@ function Phases() {
             </div>
             <p className="relative mt-2 font-semibold">{p.blurb}</p>
             <p className="relative mt-1 text-sm font-bold opacity-80">
-              {p.n === 2 && stats ? `${Math.max(0, PHASE2_SPOTS - (stats.byPhase[2] ?? 0)).toLocaleString("en-US")} spots left · ` : ""}
+              {p.n === 2 && stats ? `${Math.max(0, PHASES[1].communities.reduce((n, c) => n + spotsOf(c.name), 0) - (stats.byPhase[2] ?? 0)).toLocaleString("en-US")} spots left · ` : ""}
               {p.delegation ? "Vaults welcome (delegate.xyz)" : "\u00a0"}
             </p>
             <ul className="relative mt-5 grid gap-x-4 gap-y-2 sm:grid-cols-2">
@@ -480,6 +477,12 @@ function Phases() {
                       <span className="block truncate text-sm font-bold">{c.name}</span>
                       <span className="block text-[0.65rem] font-bold uppercase opacity-70">{off ? "Checking soon" : CHAIN_NAMES[c.chain]}</span>
                     </span>
+                    {stats && (
+                      <span className="shrink-0 text-right leading-tight">
+                        <span className="display block text-lg tabular-nums">{Math.max(0, spotsOf(c.name) - (stats.byCommunity[c.name] ?? 0)).toLocaleString("en-US")}</span>
+                        <span className="block text-[0.6rem] font-bold uppercase opacity-70">left</span>
+                      </span>
+                    )}
                   </li>
                 );
               })}
