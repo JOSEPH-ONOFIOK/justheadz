@@ -128,7 +128,7 @@ export const phaseOf = (community: string) => ALL_COMMUNITIES.find((c) => c.name
 
 // The claim post people like, repost and reply under. Empty until it's up:
 // until then the reply step takes any post of theirs that tags us.
-export const CLAIM_POST = "https://x.com/JustheadzHQ/status/2123446734466457794";
+export const CLAIM_POST = "https://x.com/JustheadzHQ/status/2123849728693870744";
 export const CLAIM_POST_ID = /\/status(?:es)?\/(\d+)/.exec(CLAIM_POST)?.[1] ?? "";
 
 export const claimReplyText = (community: string) =>
