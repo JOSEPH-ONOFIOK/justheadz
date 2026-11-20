@@ -16,9 +16,9 @@ const claimPost = CLAIM_POST || X_URL;
 const short = (a?: string) => (a ? `${a.slice(0, 6)}…${a.slice(-4)}` : "");
 const logoOf = (name?: string) => ALL_COMMUNITIES.find((c) => c.name === name)?.logo;
 
-// Follow (with notifications on) comes first
-const STEPS = ["Follow", "Wallet", "Like + repost", "Reply"] as const;
-const stepOf = (c: Claim) => (!c.followed ? 0 : !c.community ? 1 : !c.liked || !c.reposted ? 2 : 3);
+// Wallet first, then the X tasks
+const STEPS = ["Wallet", "Follow", "Like + repost", "Reply"] as const;
+const stepOf = (c: Claim) => (!c.community ? 0 : !c.followed ? 1 : !c.liked || !c.reposted ? 2 : 3);
 
 // ---------- step 1: wallet ----------
 function WalletStep({ claim, onError }: { claim: Claim; onError: (e: string | null) => void }) {
@@ -232,7 +232,7 @@ function Flow() {
   const [error, setError] = useState<string | null>(null);
   const [rewallet, setRewallet] = useState(false);
   const c: Claim = entry?.claim ?? {};
-  const step = rewallet ? 1 : stepOf(c);
+  const step = rewallet ? 0 : stepOf(c);
   const done = !!c.claimedAt;
 
   if (!ready) return <p className="display text-center text-2xl opacity-50">Loading…</p>;
@@ -311,9 +311,9 @@ function Flow() {
           )}
 
           <div className="p-5 sm:p-8">
-            <h3 className="display mb-3 text-3xl sm:text-4xl">{[`Follow ${X_HANDLE}`, "Prove the bag", "Like and repost", "Say it out loud"][step]}</h3>
-            {step === 0 && <FollowStep onError={setError} />}
-            {step === 1 && (
+            <h3 className="display mb-3 text-3xl sm:text-4xl">{["Prove the bag", `Follow ${X_HANDLE}`, "Like and repost", "Say it out loud"][step]}</h3>
+            {step === 1 && <FollowStep onError={setError} />}
+            {step === 0 && (
               <WalletStep
                 claim={c}
                 onError={(e) => {
@@ -467,7 +467,7 @@ export function ClaimPage() {
             <p className="mb-2 font-bold uppercase tracking-[0.2em] text-wine">Holder claim</p>
             <Title text="Claim" className="text-[clamp(3rem,12vw,9rem)]" />
             <p className="mx-auto mt-4 max-w-xl text-lg font-medium">
-              Hold one of the communities below? You get a free mint spot. Follow with notis on, paste your wallet, like, repost and reply, and it&rsquo;s locked. Both phases are free.
+              Hold one of the communities below? You get a free mint spot. Paste your wallet, follow with notis on, like, repost and reply, and it&rsquo;s locked. Both phases are free.
             </p>
           </div>
           <div className="mx-auto mt-10 max-w-3xl">

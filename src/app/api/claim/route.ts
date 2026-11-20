@@ -62,7 +62,6 @@ async function run(req: Request) {
 
   switch (body.step) {
     case "wallet": {
-      if (!c.followed) return bad(`Follow ${X_HANDLE} first.`);
       const wallet = String(body.wallet ?? "").trim();
       if (!WALLET.test(wallet) || isBurn(wallet)) return bad("That isn't a wallet you can claim with. It starts with 0x followed by 40 characters.");
       const signed = body.signature !== undefined;
@@ -104,6 +103,7 @@ async function run(req: Request) {
     }
 
     case "follow":
+      if (!c.community) return bad("Check your wallet first.");
       c.followed = true;
       break;
 
