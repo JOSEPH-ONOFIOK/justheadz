@@ -410,6 +410,9 @@ function Flow() {
 }
 
 // ---------- who's eligible ----------
+// Phase 2 caps from Code.gs added up (display only)
+const PHASE2_SPOTS = 2160;
+
 function Phases() {
   const [stats, setStats] = useState<ClaimStats | null>(null);
   useEffect(() => {
@@ -457,6 +460,7 @@ function Phases() {
             </div>
             <p className="relative mt-2 font-semibold">{p.blurb}</p>
             <p className="relative mt-1 text-sm font-bold opacity-80">
+              {p.n === 2 && stats ? `${Math.max(0, PHASE2_SPOTS - (stats.byPhase[2] ?? 0)).toLocaleString("en-US")} spots left · ` : ""}
               {p.delegation ? "Vaults welcome (delegate.xyz)" : "\u00a0"}
             </p>
             <ul className="relative mt-5 grid gap-x-4 gap-y-2 sm:grid-cols-2">
