@@ -29,7 +29,7 @@ export const PHASES: Phase[] = [
     n: 1,
     name: "Phase 1",
     status: "live",
-    delegation: true,
+    delegation: false,
     blurb: "The OG communities. Free mint, first in line.",
     communities: [
       // CryptoPunks, plus punks wrapped as ERC-721
@@ -64,7 +64,7 @@ export const PHASES: Phase[] = [
     n: 2,
     name: "Phase 2",
     status: "live",
-    delegation: true,
+    delegation: false,
     blurb: "The communities. Free mint, right after Phase 1.",
     communities: [
       eth("Funkari", "funkari.jpg", "0x1fafd33d882e1c275c61066019a23c1999b5006e"),
@@ -99,6 +99,9 @@ export const PHASES: Phase[] = [
 export const ALL_COMMUNITIES = PHASES.flatMap((p) => p.communities.map((c) => ({ ...c, phase: p.n, delegation: p.delegation })));
 
 // Spots in total, across both phases
+// The countdown on the claim page. Display only: the claim stays open after it.
+export const CLAIM_ENDS = "2026-11-21T16:38:22Z";
+
 export const CLAIM_CAP = 3000; // the real cap is enforced in Code.gs (TOTAL_CAP)
 
 // The total shown on the page: starts at 1,800 and steps up by 100 each time claims reach it,

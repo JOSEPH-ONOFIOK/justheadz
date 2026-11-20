@@ -5,8 +5,7 @@ import { DevConnect, XLogo } from "../apply/Apply";
 import { SessionProvider, useSession } from "../apply/Session";
 import { Morph } from "../motion/PageShell";
 import { Title } from "../motion/Title";
-import { connectAndSign, discoverWallets, walletError, type WalletOption } from "./wallets";
-import { ALL_COMMUNITIES, CHAIN_NAMES, CLAIM_POST, CLAIM_POST_ID, PHASES, claimReplyText, signMessage, shownCap, spotsOf, type Claim, type ClaimStats } from "@/lib/claim";
+import { ALL_COMMUNITIES, CHAIN_NAMES, CLAIM_POST, CLAIM_POST_ID, PHASES, claimReplyText, CLAIM_ENDS, shownCap, spotsOf, type Claim, type ClaimStats } from "@/lib/claim";
 import { SITE, WALLET, X_HANDLE, X_URL } from "@/lib/site";
 
 const US = X_HANDLE.slice(1);
@@ -23,108 +22,63 @@ const stepOf = (c: Claim) => (!c.followed ? 0 : !c.community ? 1 : !c.liked || !
 
 // ---------- step 1: wallet ----------
 function WalletStep({ claim, onError }: { claim: Claim; onError: (e: string | null) => void }) {
-  const { entry, claim: run } = useSession();
-  const [wallets, setWallets] = useState<WalletOption[] | null>(null);
-  const [busy, setBusy] = useState<string | null>(null);
-  const [mode, setMode] = useState<"connect" | "type">("connect");
+  const { claim: run } = useSession();
+  const [busy, setBusy] = useState(false);
   const [typed, setTyped] = useState("");
-
-  useEffect(() => discoverWallets(setWallets), []);
-
-  const go = async (w: WalletOption) => {
-    if (!entry) return;
-    onError(null);
-    setBusy(w.id);
-    try {
-      const { wallet, signature, ts } = await connectAndSign(w.provider, (addr, t) => signMessage(addr, entry.handle, t));
-      setBusy("check");
-      const r = await run({ step: "wallet", wallet, ts, signature });
-      onError(r.error ?? null);
-    } catch (e) {
-      onError(walletError(e));
-    }
-    setBusy(null);
-  };
 
   const check = async (e: FormEvent) => {
     e.preventDefault();
     const wallet = typed.trim();
     if (!WALLET.test(wallet)) return onError("That isn't a valid EVM address. It starts with 0x followed by 40 characters.");
     onError(null);
-    setBusy("check");
+    setBusy(true);
     const r = await run({ step: "wallet", wallet });
-    setBusy(null);
+    setBusy(false);
     onError(r.error ?? null);
   };
 
   return (
     <div>
-      <div className="mb-4 inline-flex border-4 border-ink" role="tablist" aria-label="How to give your wallet">
-        {(
-          [
-            ["connect", "Connect wallet"],
-            ["type", "Type it in"],
-          ] as const
-        ).map(([m, label]) => (
-          <button
-            key={m}
-            type="button"
-            role="tab"
-            aria-selected={mode === m}
-            onClick={() => setMode(m)}
-            className={`focus-ink px-3 py-1.5 text-sm font-bold uppercase ${mode === m ? "bg-ink text-sand" : "bg-bone"}`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-      <p className="font-semibold">
-        {mode === "connect"
-          ? "Connect the wallet you'll mint with and sign a message. Signing is free: no gas, nothing moves."
-          : "Paste the wallet you'll mint with. No connecting. If the real owner of that wallet ever claims it by connecting, their claim wins, so only use your own."}{" "}
-        {PHASES.some((p) => p.delegation) && <span className="opacity-75">Vaults that delegated to it on delegate.xyz count too, if you use one.</span>}
-      </p>
+      <p className="font-semibold">Paste the wallet that holds your NFT. That&rsquo;s the wallet that mints. No connecting, no signing.</p>
       {claim.wallet && !claim.community && <p className="mt-2 text-sm font-bold">Last checked: {short(claim.wallet)}</p>}
-      {mode === "type" ? (
-        <form onSubmit={check} className="mt-4 flex flex-col gap-2 sm:flex-row">
-          <label className="sr-only" htmlFor="claim-typed">
-            Wallet address
-          </label>
-          <input
-            id="claim-typed"
-            value={typed}
-            onChange={(e) => setTyped(e.target.value)}
-            placeholder="0x…"
-            spellCheck={false}
-            autoComplete="off"
-            className="focus-ink min-w-0 flex-1 border-4 border-ink bg-white px-3 py-2 font-mono text-sm"
-          />
-          <button type="submit" disabled={!!busy || !typed.trim()} className="btn justify-center bg-ink text-sm text-sand disabled:opacity-60">
-            <span>{busy ? "Reading the chain…" : "Check wallet"}</span>
-          </button>
-        </form>
-      ) : (
-      <div className="mt-4 flex flex-wrap gap-3">
-        {wallets === null ? (
-          <p className="font-bold opacity-60">Looking for wallets…</p>
-        ) : !wallets.length ? (
-          <p className="border-4 border-dashed border-ink/40 p-3 text-sm font-bold">
-            No wallet found in this browser. On a phone, open {HOST}/claim inside your wallet app&rsquo;s browser (MetaMask, Rabby, Coinbase Wallet). On a computer, install a wallet extension.
-          </p>
-        ) : (
-          wallets.map((w) => (
-            <button key={w.id} type="button" onClick={() => go(w)} disabled={!!busy} className="btn bg-ink text-sm text-sand disabled:opacity-60">
-              <span className="flex items-center gap-2">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                {w.icon && <img src={w.icon} alt="" className="h-5 w-5 rounded" />}
-                {busy === w.id ? "Check your wallet…" : busy === "check" ? "Reading the chain…" : w.name}
-              </span>
-            </button>
-          ))
-        )}
-      </div>
-      )}
+      <form onSubmit={check} className="mt-4 flex flex-col gap-2 sm:flex-row">
+        <label className="sr-only" htmlFor="claim-typed">
+          Wallet address
+        </label>
+        <input
+          id="claim-typed"
+          value={typed}
+          onChange={(e) => setTyped(e.target.value)}
+          placeholder="0x…"
+          spellCheck={false}
+          autoComplete="off"
+          className="focus-ink min-w-0 flex-1 border-4 border-ink bg-white px-3 py-2 font-mono text-sm"
+        />
+        <button type="submit" disabled={busy || !typed.trim()} className="btn justify-center bg-ink text-sm text-sand disabled:opacity-60">
+          <span>{busy ? "Reading the chain…" : "Check wallet"}</span>
+        </button>
+      </form>
     </div>
+  );
+}
+
+// ---------- countdown (display only: the claim doesn't close on it) ----------
+function Countdown() {
+  const [left, setLeft] = useState<number | null>(null);
+  useEffect(() => {
+    const tick = () => setLeft(Date.parse(CLAIM_ENDS) - Date.now());
+    tick();
+    const t = setInterval(tick, 1000);
+    return () => clearInterval(t);
+  }, []);
+  if (left === null) return <p className="display mt-3 text-2xl tabular-nums sm:text-3xl">&nbsp;</p>;
+  if (left <= 0) return <p className="display mt-3 text-2xl sm:text-3xl">Claim closing any minute</p>;
+  const s = Math.floor(left / 1000);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return (
+    <p className="display mt-3 text-2xl tabular-nums sm:text-3xl" aria-live="off">
+      Claim ends in {pad(Math.floor(s / 3600))}h {pad(Math.floor((s % 3600) / 60))}m {pad(s % 60)}s
+    </p>
   );
 }
 
@@ -457,8 +411,8 @@ function Phases() {
             </div>
             <p className="relative mt-2 font-semibold">{p.blurb}</p>
             <p className="relative mt-1 text-sm font-bold opacity-80">
-              {p.n === 2 && stats ? `${Math.max(0, PHASES[1].communities.reduce((n, c) => n + spotsOf(c.name), 0) - (stats.byPhase[2] ?? 0)).toLocaleString("en-US")} spots left · ` : ""}
-              {p.delegation ? "Vaults welcome (delegate.xyz)" : "\u00a0"}
+              {p.n === 2 && stats ? `${Math.max(0, PHASES[1].communities.reduce((n, c) => n + spotsOf(c.name), 0) - (stats.byPhase[2] ?? 0)).toLocaleString("en-US")} spots left` : "\u00a0"}
+
             </p>
             <ul className="relative mt-5 grid gap-x-4 gap-y-2 sm:grid-cols-2">
               {p.communities.map((c, i) => {
@@ -494,33 +448,6 @@ function Phases() {
   );
 }
 
-function Vaults() {
-  return (
-    <section className="mt-16 grid gap-6 border-4 border-ink bg-sand p-6 sm:p-8 md:grid-cols-[1fr_1.4fr] md:items-center">
-      <div>
-        <p className="font-bold uppercase tracking-[0.2em] text-wine">Optional · keep your vault cold</p>
-        <h2 className="display mt-1 text-4xl sm:text-5xl">Got a vault?</h2>
-        <p className="mt-2 font-medium">Only if your NFT sits in a vault. Your vault never connects here: delegate once, then claim from your everyday wallet. It can prove you own the NFT, but it can&rsquo;t move or sell it.</p>
-      </div>
-      <ol className="grid gap-3 sm:grid-cols-3">
-        {[
-          ["Go to delegate.xyz", "Connect your vault there, on the chain your NFT lives on."],
-          ["Delegate to your hot wallet", "Whole wallet, one collection or one token all count."],
-          ["Claim here", "Connect the hot wallet. We find the vault ourselves."],
-        ].map(([t, d], i) => (
-          <li key={t} className="border-4 border-ink bg-bone p-4 shadow-[4px_4px_0_#120c0a]">
-            <span className="display text-3xl text-wine">{i + 1}</span>
-            <p className="display mt-1 text-lg leading-tight">{t}</p>
-            <p className="mt-1 text-sm font-medium">{d}</p>
-          </li>
-        ))}
-      </ol>
-      <a href="https://delegate.xyz" target="_blank" rel="noreferrer" className="btn w-fit bg-ink text-sm text-sand md:col-span-2">
-        <span>Open delegate.xyz</span>
-      </a>
-    </section>
-  );
-}
 
 export function ClaimPage() {
   return (
@@ -530,6 +457,7 @@ export function ClaimPage() {
           <div className="pop-in mb-10 -rotate-1 border-4 border-ink bg-wine px-4 py-4 text-center text-bone shadow-[6px_6px_0_#120c0a] sm:px-8 sm:py-5" role="note">
             <p className="display text-[clamp(1.4rem,4.2vw,2.6rem)] leading-tight">Spots are limited and can be filled anytime.</p>
             <p className="display mt-1 text-[clamp(1rem,2.6vw,1.5rem)] text-sand">Grab a head while you can.</p>
+            <Countdown />
           </div>
           <div className="text-center">
             <Morph name="door-claim">
@@ -539,14 +467,13 @@ export function ClaimPage() {
             <p className="mb-2 font-bold uppercase tracking-[0.2em] text-wine">Holder claim</p>
             <Title text="Claim" className="text-[clamp(3rem,12vw,9rem)]" />
             <p className="mx-auto mt-4 max-w-xl text-lg font-medium">
-              Hold one of the communities below? You get a free mint spot. Follow with notis on, give your wallet, like, repost and reply, and it&rsquo;s locked. Both phases are free.
+              Hold one of the communities below? You get a free mint spot. Follow with notis on, paste your wallet, like, repost and reply, and it&rsquo;s locked. Both phases are free.
             </p>
           </div>
           <div className="mx-auto mt-10 max-w-3xl">
             <Flow />
           </div>
           <Phases />
-          <Vaults />
         </div>
       </section>
     </SessionProvider>
