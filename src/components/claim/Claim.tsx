@@ -431,7 +431,7 @@ function Phases() {
                       <span className="block truncate text-sm font-bold">{c.name}</span>
                       <span className="block text-[0.65rem] font-bold uppercase opacity-70">{off ? "Checking soon" : CHAIN_NAMES[c.chain]}</span>
                     </span>
-                    {stats && (
+                    {stats && p.n === 2 && (
                       <span className="shrink-0 text-right leading-tight">
                         <span className="display block text-lg tabular-nums">{Math.max(0, spotsOf(c.name) - (stats.byCommunity[c.name] ?? 0)).toLocaleString("en-US")}</span>
                         <span className="block text-[0.6rem] font-bold uppercase opacity-70">left</span>
